@@ -63,7 +63,7 @@ def load_oct_image(image_path, image_size):
 
 class OCTDatasetV2(Dataset):
 
-    def __init__(self, trial_samples, is_unique_images, one_hot_encoder, label_encoder):
+    def __init__(self, trial_samples, is_unique_images, compound_label_encoder):
         """
 
         Parameters
@@ -75,8 +75,7 @@ class OCTDatasetV2(Dataset):
         super().__init__()
         assert len(trial_samples) > 0
 
-        self.label_encoder = label_encoder
-        self.one_hot_encoder = one_hot_encoder
+        self.compound_label_encoder = compound_label_encoder
 
         self.image_size = trial_samples[0]['image'].shape[1:]  # channel, width, height
 
@@ -237,6 +236,35 @@ def get_oct_data(data_root, image_size, n_jobs=1):
 
     return trial_samples, name_label_images_dict, image_labels
 
+class CompoundLabelEncoder:
+
+    def __init__(self):
+        self.label_encoder = preprocessing.LabelEncoder()
+        self.one_hot_encoder = preprocessing.OneHotEncoder()
+
+
+    def fit_transform(self, labels):
+        encoded_labels = self.label_encoder.fit_transform(labels)
+        one_hot_encoded_labels = self.one_hot_encoder.fit_transform(encoded_labels.reshape(-1, 1)).toarray()
+        return encoded_labels, one_hot_encoded_labels
+
+    def encode(self, labels, one_hot=True):
+        encoded_labels = self.label_encoder.transform(labels)
+        if one_hot:
+            one_hot_encoded_labels = self.one_hot_encoder.transform(encoded_labels.reshape(-1, 1)).toarray()
+            return encoded_labels, one_hot_encoded_labels
+        else:
+            return encoded_labels
+
+    def decode(self, encoded_labels):
+        # check if the label is one hot encoded
+        if len(encoded_labels.shape) == 2:
+            assert encoded_labels.shape[1] == len(self.label_encoder.classes_), f"encoded labels shape {encoded_labels.shape} does not match the number of classes {len(self.label_encoder.classes_)}"
+            encoded_labels = np.argmax(encoded_labels, axis=1)
+        return self.label_encoder.inverse_transform(encoded_labels)
+
+
+
 def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, val_size=0.1, n_jobs=1, random_seed=None):
     """
     we have two set of samples: image and trials
@@ -261,12 +289,9 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
     unique_labels = np.unique(image_labels)
 
     # create label and one-hot encoder
-    label_encoder = preprocessing.LabelEncoder()
-    one_hot_encoder = preprocessing.OneHotEncoder()
-
+    compound_label_encoder = CompoundLabelEncoder()
     labels = np.array([x['label'] for x in trial_samples])
-    encoded_labels = label_encoder.fit_transform(labels)
-    one_hot_encoded_labels = one_hot_encoder.fit_transform(encoded_labels.reshape(-1, 1)).toarray()
+    encoded_labels, one_hot_encoded_labels = compound_label_encoder.fit_transform(labels)
 
     # add encoded labels to the trial samples
     for i, encoded_l, onehot_l in zip(range(len(trial_samples)), encoded_labels, one_hot_encoded_labels):
@@ -299,7 +324,7 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
     # check the label distro is stratified
     print(f"Test images has {[(unique_l, np.sum(np.array([img_l for img_l in image_labels[test_image_indices]]) == unique_l)) for unique_l in unique_labels]} labels")
 
-    test_dataset = OCTDatasetV2(test_trials, is_unique_images=True, label_encoder=label_encoder, one_hot_encoder=one_hot_encoder)
+    test_dataset = OCTDatasetV2(test_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)
 
     # now split the train and val with the remaining images
 
@@ -317,8 +342,8 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
 
         print( f"Fold {f_index}, val images has {[(unique_l, np.sum(np.array([img_l for img_l in train_val_image_labels[val_image_indices]]) == unique_l)) for unique_l in unique_labels]} labels")
 
-        folds.append([OCTDatasetV2(train_trials, is_unique_images=False, label_encoder=label_encoder, one_hot_encoder=one_hot_encoder),
-                      OCTDatasetV2(val_trials, is_unique_images=True, label_encoder=label_encoder, one_hot_encoder=one_hot_encoder)])
+        folds.append([OCTDatasetV2(train_trials, is_unique_images=False, compound_label_encoder=compound_label_encoder),
+                      OCTDatasetV2(val_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)])
     return folds, test_dataset, image_means, image_stds
 
 

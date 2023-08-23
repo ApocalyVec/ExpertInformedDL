@@ -79,7 +79,7 @@ if __name__ == '__main__':
     print("Creating data set")
     folds, test_dataset, image_means, image_stds = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs)
     pickle.dump((image_means, image_stds), open(os.path.join(results_dir, 'image_means_stds.p'), 'wb'))
-
+    pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
     # test_dataset = get_oct_dataset(test_image_path, test_image_main, image_size=image_size, n_jobs=n_jobs)
 
     train_dataset, valid_dataset = folds[0]  # TODO using only one fold for now

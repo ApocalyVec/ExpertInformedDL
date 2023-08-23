@@ -64,14 +64,17 @@ def get_trained_model(device):
     github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.1"
     model_url = f"{github_file_url}/best_model-base_alpha-0.01_dist-cross-entropy_depth-1_lr-0.0001_statedict.pt"
     image_mstd_url = f"{github_file_url}/image_means_stds.p"
+    compound_label_encoder_url = f"{github_file_url}/compound_label_encoder.p"
 
     temp_dir = tempfile.mkdtemp()
     model_file_path = os.path.join(temp_dir, "model_weights.pt")
     image_mstd_file_path = os.path.join(temp_dir, "image_means_stds.pt")
+    compound_label_encoder_file_path = os.path.join(temp_dir, "compound_label_encoder.p")
 
     # Download the file using urlretrieve
     urllib.request.urlretrieve(model_url, model_file_path)
     urllib.request.urlretrieve(image_mstd_url, image_mstd_file_path)
+    urllib.request.urlretrieve(compound_label_encoder_url, compound_label_encoder_file_path)
 
     print(f"File downloaded successfully and saved to {model_file_path}")
     model, grid_size = get_vit_model(model_name, image_size=image_size, depth=depth, device=device)
@@ -79,7 +82,8 @@ def get_trained_model(device):
 
     image_mean, image_std = pickle.load(open(image_mstd_file_path, 'rb'))
 
-    return model, image_mean, image_std, image_size
+    compound_label_encoder = pickle.load(open(compound_label_encoder_file_path, 'rb'))
+    return model, image_mean, image_std, image_size, compound_label_encoder
 
 def load_image(image_path, image_size, image_mean, image_std):
     image = load_oct_image(image_path, image_size)
