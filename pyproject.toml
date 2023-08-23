@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "expert-informed-dl"
+version = "0.0.1"
+authors = [
+  { name="Ziheng 'Leo' Li", email="apocalybec@gmail.com" },
+]
+description = "Deep learning image classificaiton informed by expert attention"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ApocalyVec/ExpertInformedDL"
+"Bug Tracker" = "https://github.com/ApocalyVec/ExpertInformedDL/issues"

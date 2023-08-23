@@ -15,7 +15,7 @@ from source.utils.training_utils import train
 # Change the following to the file path on your system #########
 data_root = 'D:/Dropbox/Dropbox/ExpertViT/Datasets/ODIR'
 data_export_root = 'C:/Data/ODIR'
-results_dir = 'results_odir'
+results_dir = 'archived/results_odir'
 
 n_jobs = 16  # n jobs for loading data from hard drive
 
