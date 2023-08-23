@@ -9,8 +9,8 @@ from torch import optim, nn
 from torch.utils.data import DataLoader
 
 from source.datasets.OCTDataset import get_oct_test_train_val_folds, collate_fn
-from source.datasets.utils.model_utils import get_vit_model
-from source.datasets.utils.training_utils import train_oct_model
+from source.utils.model_utils import get_vit_model
+from source.utils.training_utils import train_oct_model
 
 # User parameters ##################################################################################
 
@@ -28,21 +28,25 @@ folds = 3
 
 # grid search hyper-parameters ##################################
 ################################################################
-depths = 1, 3
-# depths = 3,
+# depths = 1, 3
+depths = 1,
 
 ################################################################
 # alphas = 0.0, 1e-2, 0.1, 0.25, 0.5, 0.75, 1.0
-alphas = 1e-2, 0.0
+# alphas = 1e-2, 0.0
+alphas = 1e-2,
 # alphas = .0,
 
 ################################################################
 # lrs = 1e-2, 1e-3, 1e-4
-lrs = 1e-4, 1e-5
+# lrs = 1e-4, 1e-5
+lrs = 1e-4,
+
 non_pretrained_lr_scaling = 1e-2
 
 ################################################################
-aoi_loss_distance_types = 'Wasserstein', 'cross-entropy'
+# aoi_loss_distance_types = 'Wasserstein', 'cross-entropy'
+aoi_loss_distance_types = 'cross-entropy',
 
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'

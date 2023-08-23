@@ -6,7 +6,7 @@ import torch
 from matplotlib import pyplot as plt
 
 from source.datasets.ODIRDatasets import get_ODIRDataset
-from source.datasets.utils.training_utils import train
+from source.utils.training_utils import train
 
 # from Models.ViT import ViT
 # from Models.ViT_luci import ViT_luci

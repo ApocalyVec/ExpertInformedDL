@@ -9,7 +9,7 @@ from tqdm import tqdm
 from torch import nn, autograd
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
-from source.datasets.utils.torch_utils import torch_wasserstein_loss
+from source.utils.torch_utils import torch_wasserstein_loss
 from source.viz.bad_gradient import is_bad_grad
 
 def get_class_weight(labels, n_classes, smoothing_factor=0.1):
@@ -295,6 +295,8 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
             best_acc = valid_acc
             best_model = model
             torch.save(best_model, os.path.join(results_dir, f'best_{model_config_string}.pt'))
+            torch.save(model.state_dict(), os.path.join(results_dir, f'best_{model_config_string}_statedict.pt'))
+
         if epoch >= 10 and len(set(train_acc_list[-10:])) == 1 and len(set(valid_acc_list[-10:])) == 1:
             break
     torch.save(model, os.path.join(results_dir, f'final_{model_config_string}.pt'))

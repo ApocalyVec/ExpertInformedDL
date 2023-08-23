@@ -12,9 +12,9 @@ from matplotlib.colors import LinearSegmentedColormap
 from torch.utils.data import DataLoader
 
 from source.datasets.OCTDataset import collate_fn
-from source.datasets.utils.iter_utils import chunker
-from source.datasets.utils.model_utils import parse_model_parameter
-from source.datasets.utils.training_utils import run_validation
+from source.utils.iter_utils import chunker
+from source.utils.model_utils import parse_model_parameter
+from source.utils.training_utils import run_validation
 from source.viz.vit_rollout import VITAttentionRollout
 
 from source.viz.viz_utils import plt2arr

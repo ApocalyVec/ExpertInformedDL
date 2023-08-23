@@ -12,7 +12,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset
 from PIL import Image
 
-from source.datasets.utils.image_utils import generate_image_binary_mask
+from source.utils.image_utils import generate_image_binary_mask
 
 
 def get_label(df_dir):

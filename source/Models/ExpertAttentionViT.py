@@ -146,6 +146,7 @@ class ViT_LSTM(nn.Module):
         self.rnn_hidden_dim = 64
         self.num_layers = 2
         image_height, image_width = image_size
+        self.image_size = image_size
         self.patch_height, self.patch_width = int(image_height / num_patches), int(image_width / num_patches)
         self.grid_size = num_patches, num_patches
 
