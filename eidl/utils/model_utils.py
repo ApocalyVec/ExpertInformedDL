@@ -85,7 +85,7 @@ def get_trained_model(device):
     compound_label_encoder = pickle.load(open(compound_label_encoder_file_path, 'rb'))
     return model, image_mean, image_std, image_size, compound_label_encoder
 
-def load_image(image_path, image_size, image_mean, image_std):
+def load_image_preprocess(image_path, image_size, image_mean, image_std):
     image = load_oct_image(image_path, image_size)
     image_normalized = (image - image_mean) / image_std
     # transpose to channel first
