@@ -19,7 +19,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 
-from source.Models.ViT_pretrained.pytorch_pretrained_vit import ViT
+from eidl.Models.ViT_pretrained.pytorch_pretrained_vit import ViT
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',

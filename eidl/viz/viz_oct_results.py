@@ -11,13 +11,13 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from torch.utils.data import DataLoader
 
-from source.datasets.OCTDataset import collate_fn
-from source.utils.iter_utils import chunker
-from source.utils.model_utils import parse_model_parameter
-from source.utils.training_utils import run_validation
-from source.viz.vit_rollout import VITAttentionRollout
+from eidl.datasets.OCTDataset import collate_fn
+from eidl.utils.iter_utils import chunker
+from eidl.utils.model_utils import parse_model_parameter
+from eidl.utils.training_utils import run_validation
+from eidl.viz.vit_rollout import VITAttentionRollout
 
-from source.viz.viz_utils import plt2arr
+from eidl.viz.viz_utils import plt2arr
 
 def register_cmap_with_alpha(cmap_name):
     # get colormap

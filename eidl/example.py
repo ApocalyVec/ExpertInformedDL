@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from source.utils.model_utils import get_trained_model, load_image
+from eidl.utils.model_utils import get_trained_model, load_image
 
 # replace the image path to yours
 image_path = r'D:\Dropbox\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\reports_cleaned\G_Suspects\RLS_074_OD_TC.jpg'

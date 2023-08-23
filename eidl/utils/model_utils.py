@@ -6,9 +6,9 @@ import urllib
 import timm
 import torch
 
-from source.Models.ExpertAttentionViT import ViT_LSTM
-from source.Models.ExtensionModels import ExpertTimmVisionTransformer
-from source.datasets.OCTDataset import load_oct_image
+from eidl.Models.ExpertAttentionViT import ViT_LSTM
+from eidl.Models.ExtensionModels import ExpertTimmVisionTransformer
+from eidl.datasets.OCTDataset import load_oct_image
 
 
 def get_vit_model(model_name, image_size, depth, device):

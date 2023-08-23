@@ -9,8 +9,8 @@ from tqdm import tqdm
 from torch import nn, autograd
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
-from source.utils.torch_utils import torch_wasserstein_loss
-from source.viz.bad_gradient import is_bad_grad
+from eidl.utils.torch_utils import torch_wasserstein_loss
+from eidl.viz.bad_gradient import is_bad_grad
 
 def get_class_weight(labels, n_classes, smoothing_factor=0.1):
     """

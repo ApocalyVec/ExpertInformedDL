@@ -2,7 +2,7 @@ import torch
 
 import numpy as np
 
-from source.Models.ExpertAttentionViT import Attention as ExpertAttentionViTAttention
+from eidl.Models.ExpertAttentionViT import Attention as ExpertAttentionViTAttention
 
 from timm.models.vision_transformer import VisionTransformer
 
