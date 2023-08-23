@@ -88,4 +88,6 @@ def get_trained_model(device):
 def load_image(image_path, image_size, image_mean, image_std):
     image = load_oct_image(image_path, image_size)
     image_normalized = (image - image_mean) / image_std
+    # transpose to channel first
+    image_normalized = image_normalized.transpose((2, 0, 1))
     return image_normalized, image

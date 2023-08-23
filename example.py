@@ -1,5 +1,6 @@
 
 import torch
+import numpy as np
 import matplotlib.pyplot as plt
 
 from source.utils.model_utils import get_trained_model, load_image
@@ -18,6 +19,8 @@ image_normalized, image = load_image(image_path, image_size, image_mean, image_s
 plt.imshow(image)
 
 # get the prediction
-y_pred = model(torch.Tensor(image_normalized).unsqueeze(0).to(device))
+y_pred, attention_matrix = model(torch.Tensor(image_normalized).unsqueeze(0).to(device), collapse_attention_matrix=False)
+predicted_label = np.array([torch.argmax(y_pred).item()])
+decoded_label = compound_label_encoder.decode(predicted_label)
 
-compound_label_encoder.decode()
+print(f'Predicted label: {decoded_label}')

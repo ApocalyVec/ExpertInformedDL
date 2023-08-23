@@ -184,7 +184,7 @@ class ViT_LSTM(nn.Module):
         self.lstm = nn.LSTM(self.num_dim_fixation, self.rnn_hidden_dim, num_layers=self.num_layers, bidirectional=False,
                             batch_first=True)
 
-    def forward(self, img, fixation_sequence=None, *args, **kwargs):
+    def forward(self, img, fixation_sequence=None, collapse_attention_matrix=True, *args, **kwargs):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
@@ -194,9 +194,10 @@ class ViT_LSTM(nn.Module):
         x = self.dropout(x)
 
         x, att_matrix = self.transformer(x)
-        att_matrix = att_matrix[:, :, 1:, 1:]
-        att_matrix = att_matrix / torch.sum(att_matrix, dim=3, keepdim=True)
-        att_matrix = torch.sum(att_matrix, dim=2)
+        if collapse_attention_matrix:
+            att_matrix = att_matrix[:, :, 1:, 1:]
+            att_matrix = att_matrix / torch.sum(att_matrix, dim=3, keepdim=True)
+            att_matrix = torch.sum(att_matrix, dim=2)
         # att_matrix = att_matrix / torch.sum(att_matrix, dim=2,keepdim= True)
 
         x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]
