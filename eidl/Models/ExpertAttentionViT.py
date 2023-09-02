@@ -136,8 +136,8 @@ class Transformer(nn.Module):
 #         return self.mlp_head(x)
 
 class ViT_LSTM(nn.Module):
-    def __init__(self, *, image_size, num_patches, num_classes, embed_dim, depth, heads, mlp_dim, pool='cls', channels=3,
-                 dim_head=64, dropout=0., emb_dropout=0., weak_interaction=True):
+    def __init__(self, *, image_size, num_classes, embed_dim, depth, heads, mlp_dim, pool='cls', channels=3,
+                 dim_head=64, dropout=0., emb_dropout=0., weak_interaction=True, num_patches=None, patch_size=None):
         super().__init__()
         self.depth = depth
         self.heads = heads
@@ -147,8 +147,14 @@ class ViT_LSTM(nn.Module):
         self.num_layers = 2
         image_height, image_width = image_size
         self.image_size = image_size
-        self.patch_height, self.patch_width = int(image_height / num_patches), int(image_width / num_patches)
-        self.grid_size = num_patches, num_patches
+
+        assert num_patches is not None or patch_size is not None, 'Either num_patches or patch_size must be specified.'
+        if patch_size is None:
+            self.patch_height, self.patch_width = int(image_height / num_patches), int(image_width / num_patches)
+            self.grid_size = num_patches, num_patches
+        else:
+            self.patch_height, self.patch_width = patch_size
+            self.grid_size = int(image_height / self.patch_height), int(image_width / self.patch_width)
 
         assert image_height % num_patches == 0 and image_width % num_patches == 0, 'Image dimensions must be divisible by the patch size.'
 

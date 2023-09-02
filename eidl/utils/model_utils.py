@@ -13,7 +13,7 @@ from eidl.datasets.OCTDataset import load_oct_image
 
 def get_vit_model(model_name, image_size, depth, device):
     if model_name == 'base':
-        model = ViT_LSTM(image_size=reverse_tuple(image_size), num_patches=32, num_classes=2, embed_dim=128, depth=depth, heads=1,
+        model = ViT_LSTM(image_size=reverse_tuple(image_size), patch_size=(50, 25), num_classes=2, embed_dim=128, depth=depth, heads=1,
                          mlp_dim=2048, weak_interaction=False).to(device)
     else:  # assuming any other name is timm models
         model = timm.create_model(model_name, img_size=reverse_tuple(image_size), pretrained=True, num_classes=2)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
@@ -40,7 +40,7 @@ def parse_model_parameter(model_config_string: str, parameter_name: str):
         return parameter_value
 
 
-def get_trained_model(device):
+def get_trained_model(device, model_param):
     """
     to use the model returned by this function, user should use model_utils.load_image and pass the returns (image_mean, image_std, image_size)
     as arguments.
@@ -51,24 +51,31 @@ def get_trained_model(device):
     Returns
     a tuple of four items
     model: the trained model
+    model_param: str: can be 'num-patch-32_image-size-1024-512', or 'patch-size-50-25_image-size-1000-500'
     image_mean: means of the RGB channels of the data on which the model is trained
     image_std: stds of the
     image_size: the size of the image used by the model
     -------
 
     """
-    image_size = 1024, 512
     model_name = 'base'
     depth = 1
 
+    if model_param == 'num-patch-32_image-size-1024-512':
+        image_size = 1024, 512
+    elif model_param == 'patch-size-50-25_image-size-1000-500':
+        image_size = 1000, 500
+    else:
+        raise ValueError(f"model_param {model_param} is not supported")
+
     github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.1"
-    model_url = f"{github_file_url}/best_model-base_alpha-0.01_dist-cross-entropy_depth-1_lr-0.0001_statedict.pt"
+    model_url = f"{github_file_url}/best_model-base_alpha-0.01_dist-cross-entropy_depth-1_lr-0.0001_statedict_{model_param}.pt"
     image_mstd_url = f"{github_file_url}/image_means_stds.p"
     compound_label_encoder_url = f"{github_file_url}/compound_label_encoder.p"
 
     temp_dir = tempfile.mkdtemp()
     model_file_path = os.path.join(temp_dir, "model_weights.pt")
-    image_mstd_file_path = os.path.join(temp_dir, "image_means_stds.pt")
+    image_mstd_file_path = os.path.join(temp_dir, f"image_means_stds_{model_param}.pt")
     compound_label_encoder_file_path = os.path.join(temp_dir, "compound_label_encoder.p")
 
     # Download the file using urlretrieve

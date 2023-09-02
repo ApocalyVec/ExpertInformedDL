@@ -55,7 +55,7 @@ aoi_loss_distance_types = 'cross-entropy',
 model_names = 'base',
 
 ################################################################
-image_size = 1024, 512
+image_size = 1000, 500
 
 # end of user parameters #############################################################################
 if __name__ == '__main__':

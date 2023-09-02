@@ -10,7 +10,7 @@ image_path = r'D:\Dropbox\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\reports_clea
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-model, image_mean, image_std, image_size, compound_label_encoder = get_trained_model(device)
+model, image_mean, image_std, image_size, compound_label_encoder = get_trained_model(device, model_param='num-patch-32_image-size-1024-512')
 
 image_normalized, image = load_image_preprocess(image_path, image_size, image_mean, image_std)
 
