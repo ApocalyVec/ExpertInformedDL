@@ -72,12 +72,12 @@ def get_trained_model(device, model_param):
 
     github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.1"
     model_url = f"{github_file_url}/best_model-base_alpha-0.01_dist-cross-entropy_depth-1_lr-0.0001_statedict_{model_param}.pt"
-    image_mstd_url = f"{github_file_url}/image_means_stds.p"
+    image_mstd_url = f"{github_file_url}/image_means_stds_{model_param}.p"
     compound_label_encoder_url = f"{github_file_url}/compound_label_encoder.p"
 
     temp_dir = tempfile.mkdtemp()
     model_file_path = os.path.join(temp_dir, "model_weights.pt")
-    image_mstd_file_path = os.path.join(temp_dir, f"image_means_stds_{model_param}.pt")
+    image_mstd_file_path = os.path.join(temp_dir, f"image_means_stds_{model_param}.p")
     compound_label_encoder_file_path = os.path.join(temp_dir, "compound_label_encoder.p")
 
     # Download the file using urlretrieve
