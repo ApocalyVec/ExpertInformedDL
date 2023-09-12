@@ -297,8 +297,8 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
             torch.save(best_model, os.path.join(results_dir, f'best_{model_config_string}.pt'))
             torch.save(model.state_dict(), os.path.join(results_dir, f'best_{model_config_string}_statedict.pt'))
 
-        if epoch >= 10 and len(set(train_acc_list[-10:])) == 1 and len(set(valid_acc_list[-10:])) == 1:
-            break
+        # if epoch >= 10 and len(set(train_acc_list[-10:])) == 1 and len(set(valid_acc_list[-10:])) == 1:
+        #     break
     torch.save(model, os.path.join(results_dir, f'final_{model_config_string}.pt'))
     return train_loss_list, train_acc_list, valid_loss_list, valid_acc_list
 

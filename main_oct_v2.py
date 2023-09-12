@@ -40,6 +40,7 @@ alphas = 1e-2,
 ################################################################
 # lrs = 1e-2, 1e-3, 1e-4
 # lrs = 1e-4, 1e-5
+# lrs = 1e-4,
 lrs = 1e-4,
 
 non_pretrained_lr_scaling = 1e-2
@@ -55,7 +56,7 @@ aoi_loss_distance_types = 'cross-entropy',
 model_names = 'base',
 
 ################################################################
-image_size = 1000, 500
+image_size = 1024, 512
 
 # end of user parameters #############################################################################
 if __name__ == '__main__':

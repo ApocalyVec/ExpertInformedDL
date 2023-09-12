@@ -138,6 +138,26 @@ class Transformer(nn.Module):
 class ViT_LSTM(nn.Module):
     def __init__(self, *, image_size, num_classes, embed_dim, depth, heads, mlp_dim, pool='cls', channels=3,
                  dim_head=64, dropout=0., emb_dropout=0., weak_interaction=True, num_patches=None, patch_size=None):
+        """
+
+        Parameters
+        ----------
+        image_size
+        num_classes
+        embed_dim
+        depth
+        heads
+        mlp_dim
+        pool
+        channels
+        dim_head
+        dropout
+        emb_dropout
+        weak_interaction
+        num_patches: int: number of patches in each dimension, using this parameter will override patch_size and will create the
+        the same number of patches across height and width
+        patch_size: tuple: tuple of two integers, in pixels (height, width)
+        """
         super().__init__()
         self.depth = depth
         self.heads = heads
@@ -156,7 +176,7 @@ class ViT_LSTM(nn.Module):
             self.patch_height, self.patch_width = patch_size
             self.grid_size = int(image_height / self.patch_height), int(image_width / self.patch_width)
 
-        assert image_height % num_patches == 0 and image_width % num_patches == 0, 'Image dimensions must be divisible by the patch size.'
+        assert image_height % self.grid_size[1] == 0 and image_width % self.grid_size[0] == 0, 'Image dimensions must be divisible by the patch size.'
 
         self.num_patches = (image_height // self.patch_height) * (image_width // self.patch_width)
         patch_dim = channels * self.patch_height * self.patch_width

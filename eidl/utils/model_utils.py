@@ -13,7 +13,9 @@ from eidl.datasets.OCTDataset import load_oct_image
 
 def get_vit_model(model_name, image_size, depth, device):
     if model_name == 'base':
-        model = ViT_LSTM(image_size=reverse_tuple(image_size), patch_size=(50, 25), num_classes=2, embed_dim=128, depth=depth, heads=1,
+        # model = ViT_LSTM(image_size=reverse_tuple(image_size), patch_size=(32, 16), num_classes=2, embed_dim=128, depth=depth, heads=1,
+        #                  mlp_dim=2048, weak_interaction=False).to(device)
+        model = ViT_LSTM(image_size=reverse_tuple(image_size), num_patches=32, num_classes=2, embed_dim=128, depth=depth, heads=1,
                          mlp_dim=2048, weak_interaction=False).to(device)
     else:  # assuming any other name is timm models
         model = timm.create_model(model_name, img_size=reverse_tuple(image_size), pretrained=True, num_classes=2)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
