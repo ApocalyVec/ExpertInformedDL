@@ -78,9 +78,10 @@ class VITAttentionRollout:
 
         if isinstance(self.model, VisionTransformer):
             output = self.model(input_tensor)
-        else:
+        elif fix_sequence is not None:
             output = self.model(input_tensor.to(self.device), fix_sequence.to(self.device))
-
+        else:
+            output = self.model(input_tensor.to(self.device))
         # with torch.no_grad():
         #     if isinstance(self.model, ViT_LSTM):
         #         x = self.model.to_patch_embedding(input_tensor.to(self.device))
