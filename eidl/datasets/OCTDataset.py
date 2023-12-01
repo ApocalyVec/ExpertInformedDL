@@ -1,4 +1,5 @@
 import os
+import pickle
 from collections import defaultdict
 from multiprocessing import Pool
 
@@ -11,6 +12,7 @@ from sklearn import preprocessing
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset
 from PIL import Image
+from PIL import Image as im
 
 from eidl.utils.image_utils import generate_image_binary_mask
 
@@ -52,14 +54,29 @@ def get_heatmap(seq, grid_size):
     assert abs(heatmap.sum() - 1) < 0.01, ValueError("no fixations sequence")
     return heatmap
 
-def load_oct_image(image_path, image_size):
-    image = Image.open(image_path).convert('RGB')
+def load_oct_image(image_info, image_size):
+    """
+
+    @param image_info:
+        if str, interpret as the image path,
+        if dict, interpret as the image info dict, comes with the cropped image data
+    """
+    if isinstance(image_info, str):
+        image = Image.open(image_info).convert('RGB')
+    elif isinstance(image_info, np.ndarray):
+        image = image_info
+    else:
+        raise ValueError(f"image info {image_info} is not a valid type")
     # image = image.crop((0, 0, 5360, 2656))
     # image = image.crop((0, 0, 5120, 2640))
-    image = image.resize(image_size, resample=PIL.Image.LANCZOS)
+    image = im.fromarray(image).resize(image_size, resample=PIL.Image.LANCZOS)
     image = np.array(image).astype(np.float32)
     return image
 
+
+def resize_image(image_name, image_size, image):
+    image = load_oct_image(image, image_size)
+    return image_name, {'image': image}
 
 class OCTDatasetV2(Dataset):
 
@@ -157,11 +174,27 @@ def de_z_norm(x, mean, std):
         x[d] = x[d] * std[d] + mean[d]
     return x
 
-def get_oct_data(data_root, image_size, n_jobs=1):
+def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, *args, **kwargs):
     """
     expects two folds in data root:
         reports_cleaned: folds must have the first letter being either S or G (oct_labels)
         pvalovia-data
+
+    Structure of the cropped_image_data:
+        label: str:
+            image_name: str:
+                'image': np.array
+                'sub_images':
+                    'En-face_52.0micrometer_Slab_(Retina_View)':
+                        'sub_image': np.array
+                        'position': list of four two-int tuples
+                    'Circumpapillary_RNFL':         same as above
+                    'RNFL_Thickness_(Retina_View)': same as above
+                    'GCL_Thickness_(Retina_View)':  same as above
+                    'RNFL_Probability_and_VF_Test_points(Field_View)': same as above
+                    'GCL+_Probability_and_VF_Test_points': same as above
+                'label': str: 'G', 'S', 'G_Suspects', 'S_Suspects'
+
     Parameters
     ----------
     data_root
@@ -171,6 +204,14 @@ def get_oct_data(data_root, image_size, n_jobs=1):
     Returns
     -------
     """
+    # check if cropped image data exists
+    if cropped_image_data_path is not None:
+        cropped_image_data = pickle.load(open(cropped_image_data_path, 'rb'))
+        # turn into a dict keyed by image name
+        # cropped_image_data = {k: v for k, v in cropped_image_data.items() for k, v in v.items()}
+    else:
+        cropped_image_data = None
+
     image_root = os.path.join(data_root, 'reports_cleaned')
     assert os.path.exists(image_root), f"image directory {image_root} does not exist, please download the data from drive"
 
@@ -179,17 +220,30 @@ def get_oct_data(data_root, image_size, n_jobs=1):
 
     image_dirs = os.listdir(image_root)
     name_label_images_dict = {}
-    # get the images and labels from the image directorys
-    for i, image_dir in enumerate(image_dirs):
-        print(f"working on image directory {image_dir}, {i+1}/{len(image_dirs)}")
-        label = image_dir[0]  # get the image label
-        image_fns = os.listdir((this_image_dir := os.path.join(image_root, image_dir)))
-        image_names = [n.split('.')[0] for n in image_fns]  # remove file extension
-        load_image_args = [(os.path.join(this_image_dir, fn), image_size) for fn in image_fns]
+    # get the images and labels from the image directories
 
+    if cropped_image_data_path is None:
+        for i, image_dir in enumerate(image_dirs):
+            print(f"working on image directory {image_dir}, {i+1}/{len(image_dirs)}")
+            label = image_dir[0]  # get the image label
+            image_fns = os.listdir((this_image_dir := os.path.join(image_root, image_dir)))
+            image_names = [n.split('.')[0] for n in image_fns]  # remove file extension
+            load_image_args = [(os.path.join(this_image_dir, fn), image_size) for fn in image_fns]
+            with Pool(n_jobs) as p:
+                images = p.starmap(load_oct_image, load_image_args)
+            name_label_images_dict = {**name_label_images_dict,
+                                      **{image_name: {'name': image_name, 'image': image, 'label': label}
+                                         for image_name, image in zip(image_names, images)}}
+    else:
+        load_image_args = [(image_name, image_size, image_info_dict['image']) for image_name, image_info_dict in cropped_image_data.items()]
+        # change the key original_image to image
         with Pool(n_jobs) as p:
-            images = p.starmap(load_oct_image, load_image_args)
-        name_label_images_dict = {**name_label_images_dict, **{image_name: {'name': image_name, 'image': image, 'label': label} for image_name, image in zip(image_names, images)}}
+            name_label_images_dict = dict(p.starmap(resize_image, load_image_args))
+        # change the key name of the image data from the original cropped_image_data from image to original image
+        for k in cropped_image_data.keys():
+            cropped_image_data[k]['original_image'] = cropped_image_data[k].pop('image')
+        for k in cropped_image_data.keys():
+            name_label_images_dict[k] = {**name_label_images_dict[k], **cropped_image_data[k]}
 
     trial_samples = []
     image_name_counts = defaultdict(int)
@@ -265,7 +319,7 @@ class CompoundLabelEncoder:
 
 
 
-def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, val_size=0.1, n_jobs=1, random_seed=None):
+def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, val_size=0.1, n_jobs=1, random_seed=None, *args, **kwargs):
     """
     we have two set of samples: image and trials
 
@@ -285,7 +339,7 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
     -------
 
     """
-    trial_samples, name_label_images_dict, image_labels = get_oct_data(data_root, image_size, n_jobs)
+    trial_samples, name_label_images_dict, image_labels = get_oct_data(data_root, image_size, n_jobs, *args, **kwargs)
     unique_labels = np.unique(image_labels)
 
     # create label and one-hot encoder
@@ -304,6 +358,7 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
     for i in range(len(trial_samples)):
         trial_samples[i]['white_mask'] = generate_image_binary_mask(trial_samples[i]['image'], channel_first=False)
 
+# TODO process the sub images
     # z-normalize the images
     image_data = np.array([x['image'] for x in trial_samples])
     image_means = np.mean(image_data, axis=(0, 1, 2))
