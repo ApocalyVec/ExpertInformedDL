@@ -210,8 +210,12 @@ class ViT_LSTM(nn.Module):
         self.lstm = nn.LSTM(self.num_dim_fixation, self.rnn_hidden_dim, num_layers=self.num_layers, bidirectional=False,
                             batch_first=True)
 
-    def forward(self, img, fixation_sequence=None, collapse_attention_matrix=True, *args, **kwargs):
+    def forward(self, img, *args, **kwargs):
         x = self.to_patch_embedding(img)
+        return self._encode(x, *args, **kwargs)
+
+
+    def _encode(self, x, fixation_sequence, collapse_attention_matrix, *args, **kwargs):
         b, n, _ = x.shape
 
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
@@ -241,24 +245,24 @@ class ViT_LSTM(nn.Module):
 
         return self.mlp_head(x), att_matrix
 
-    def test(self, img):
-        x = self.to_patch_embedding(img)
-        b, n, _ = x.shape
-
-        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
-        x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(n + 1)]
-        x = self.dropout(x)
-
-        x, att_matrix = self.transformer(x)
-        att_matrix = att_matrix[:, :, 1:, 1:]
-        att_matrix = att_matrix / torch.sum(att_matrix, dim=3, keepdim=True)
-        att_matrix = torch.sum(att_matrix, dim=2)
-        # att_matrix = att_matrix / torch.sum(att_matrix, dim=2,keepdim= True)
-        # note test does not have lstm and sequence
-        x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]
-
-        return self.mlp_head(x), att_matrix
+    # def test(self, img):
+    #     x = self.to_patch_embedding(img)
+    #     b, n, _ = x.shape
+    #
+    #     cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
+    #     x = torch.cat((cls_tokens, x), dim=1)
+    #     x += self.pos_embedding[:, :(n + 1)]
+    #     x = self.dropout(x)
+    #
+    #     x, att_matrix = self.transformer(x)
+    #     att_matrix = att_matrix[:, :, 1:, 1:]
+    #     att_matrix = att_matrix / torch.sum(att_matrix, dim=3, keepdim=True)
+    #     att_matrix = torch.sum(att_matrix, dim=2)
+    #     # att_matrix = att_matrix / torch.sum(att_matrix, dim=2,keepdim= True)
+    #     # note test does not have lstm and sequence
+    #     x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]
+    #
+    #     return self.mlp_head(x), att_matrix
 
     def get_grid_size(self):
         return self.grid_size

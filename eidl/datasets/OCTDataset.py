@@ -3,7 +3,6 @@ import pickle
 from collections import defaultdict
 from multiprocessing import Pool
 
-import PIL
 import numpy as np
 import pandas as pd
 import torch
@@ -11,10 +10,9 @@ from matplotlib import pyplot as plt
 from sklearn import preprocessing
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset
-from PIL import Image
-from PIL import Image as im
 
-from eidl.utils.image_utils import generate_image_binary_mask
+from eidl.utils.image_utils import generate_image_binary_mask, resize_image, load_oct_image, resize_subimages, \
+    z_norm_subimages
 
 
 def get_label(df_dir):
@@ -54,31 +52,8 @@ def get_heatmap(seq, grid_size):
     assert abs(heatmap.sum() - 1) < 0.01, ValueError("no fixations sequence")
     return heatmap
 
-def load_oct_image(image_info, image_size):
-    """
 
-    @param image_info:
-        if str, interpret as the image path,
-        if dict, interpret as the image info dict, comes with the cropped image data
-    """
-    if isinstance(image_info, str):
-        image = Image.open(image_info).convert('RGB')
-    elif isinstance(image_info, np.ndarray):
-        image = image_info
-    else:
-        raise ValueError(f"image info {image_info} is not a valid type")
-    # image = image.crop((0, 0, 5360, 2656))
-    # image = image.crop((0, 0, 5120, 2640))
-    image = im.fromarray(image).resize(image_size, resample=PIL.Image.LANCZOS)
-    image = np.array(image).astype(np.float32)
-    return image
-
-
-def resize_image(image_name, image_size, image):
-    image = load_oct_image(image, image_size)
-    return image_name, {'image': image}
-
-class OCTDatasetV2(Dataset):
+class OCTDatasetV3(Dataset):
 
     def __init__(self, trial_samples, is_unique_images, compound_label_encoder):
         """
@@ -107,6 +82,7 @@ class OCTDatasetV2(Dataset):
                     unique_name_trial_samples.append(s)
                     unique_names.append(s['name'])
             self.trial_samples = unique_name_trial_samples
+
 
     def create_aoi(self, grid_size):
         """
@@ -239,11 +215,43 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
         # change the key original_image to image
         with Pool(n_jobs) as p:
             name_label_images_dict = dict(p.starmap(resize_image, load_image_args))
+
         # change the key name of the image data from the original cropped_image_data from image to original image
         for k in cropped_image_data.keys():
             cropped_image_data[k]['original_image'] = cropped_image_data[k].pop('image')
+
+        # resize the subimages
+        cropped_image_data = resize_subimages(cropped_image_data, *args, **kwargs)
+
         for k in cropped_image_data.keys():
             name_label_images_dict[k] = {**name_label_images_dict[k], **cropped_image_data[k]}
+
+    # perform z-norm
+
+    # compute white mask for each image
+    for k, x in name_label_images_dict.items():
+        name_label_images_dict[k]['white_mask'] = generate_image_binary_mask(x['image'], channel_first=False)
+
+    # TODO process the sub images
+    # z-normalize the images
+    # the z-normal should be computed from the 177 images, not from the 455 trials
+    image_data = np.array([x['image'] for k, x in name_label_images_dict.items()])
+    image_means = np.mean(image_data, axis=(0, 1, 2))
+    image_stds = np.std(image_data, axis=(0, 1, 2))
+    for k, x in name_label_images_dict.items():
+        name_label_images_dict[k]['image_z_normed'] = (x['image'] - image_means) / image_stds
+
+    # process the subimages if there are any
+    print("z norming subimages")
+    name_label_images_dict, subimage_mean, subimage_std = z_norm_subimages(name_label_images_dict)
+
+    # make the image channel_first to be compatible with downstream training
+    for k, x in name_label_images_dict.items():
+        # name_label_images_dict[k]['image'] = name_label_images_dict[k]['image'].transpose((2, 0, 1))  # no need to transpose the original image since it is not used in training
+        name_label_images_dict[k]['image_z_normed'] = name_label_images_dict[k]['image_z_normed'].transpose((2, 0, 1))
+        # TODO transpose the subimages
+        for s_image_name, s_image_data in name_label_images_dict[k]['sub_images'].items():
+            name_label_images_dict[k]['sub_images'][s_image_name]['sub_image_cropped_padded_z_normed'] = s_image_data['sub_image_cropped_padded_z_normed'].transpose((2, 0, 1))
 
     trial_samples = []
     image_name_counts = defaultdict(int)
@@ -262,7 +270,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
             if len(fixation_sequence) == 0:
                 no_fixation_count += 1
                 continue
-            trial_samples.append({**{'fix_seq': fixation_sequence}, **name_label_images_dict[image_name]})
+            trial_samples.append({**{'name': image_name, 'fix_seq': fixation_sequence}, **name_label_images_dict[image_name]})
             image_name_counts[image_name] += 1
 
     print(f"Number of trials without fixation sequence {no_fixation_count} with {len(trial_samples)} valid trials")
@@ -288,7 +296,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     plt.title("Number of images per label")
     plt.show()
 
-    return trial_samples, name_label_images_dict, image_labels
+    return trial_samples, name_label_images_dict, image_labels, {'image_means': image_means, 'image_stds': image_stds, 'subimage_mean': subimage_mean, 'subimage_std': subimage_std}
 
 class CompoundLabelEncoder:
 
@@ -339,7 +347,7 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
     -------
 
     """
-    trial_samples, name_label_images_dict, image_labels = get_oct_data(data_root, image_size, n_jobs, *args, **kwargs)
+    trial_samples, name_label_images_dict, image_labels, image_stats = get_oct_data(data_root, image_size, n_jobs, *args, **kwargs)
     unique_labels = np.unique(image_labels)
 
     # create label and one-hot encoder
@@ -354,23 +362,6 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
 
     image_names = np.array(list(name_label_images_dict.keys()))
 
-    # compute white mask for each image
-    for i in range(len(trial_samples)):
-        trial_samples[i]['white_mask'] = generate_image_binary_mask(trial_samples[i]['image'], channel_first=False)
-
-# TODO process the sub images
-    # z-normalize the images
-    image_data = np.array([x['image'] for x in trial_samples])
-    image_means = np.mean(image_data, axis=(0, 1, 2))
-    image_stds = np.std(image_data, axis=(0, 1, 2))
-    for i in range(len(trial_samples)):
-        trial_samples[i]['image_z_normed'] = (trial_samples[i]['image'] - image_means) / image_stds
-
-    # make the image channel_first to be compatible with downstream training
-    for i in range(len(trial_samples)):
-        trial_samples[i]['image'] = trial_samples[i]['image'].transpose((2, 0, 1))
-        trial_samples[i]['image_z_normed'] = trial_samples[i]['image_z_normed'].transpose((2, 0, 1))
-
     skf = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_seed)
     train_val_image_indices, test_image_indices = [(train, test) for train, test in skf.split(image_names, image_labels)][0]  # split by image labels, not trials!
     test_image_names = image_names[test_image_indices]
@@ -379,7 +370,7 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
     # check the label distro is stratified
     print(f"Test images has {[(unique_l, np.sum(np.array([img_l for img_l in image_labels[test_image_indices]]) == unique_l)) for unique_l in unique_labels]} labels")
 
-    test_dataset = OCTDatasetV2(test_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)
+    test_dataset = OCTDatasetV3(test_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)
 
     # now split the train and val with the remaining images
 
@@ -397,8 +388,8 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
 
         print( f"Fold {f_index}, val images has {[(unique_l, np.sum(np.array([img_l for img_l in train_val_image_labels[val_image_indices]]) == unique_l)) for unique_l in unique_labels]} labels")
 
-        folds.append([OCTDatasetV2(train_trials, is_unique_images=False, compound_label_encoder=compound_label_encoder),
-                      OCTDatasetV2(val_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)])
-    return folds, test_dataset, image_means, image_stds
+        folds.append([OCTDatasetV3(train_trials, is_unique_images=False, compound_label_encoder=compound_label_encoder),
+                      OCTDatasetV3(val_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)])
+    return folds, test_dataset, image_stats
 
 

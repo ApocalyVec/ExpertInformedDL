@@ -7,16 +7,20 @@ import timm
 import torch
 
 from eidl.Models.ExpertAttentionViT import ViT_LSTM
+from eidl.Models.ExpertAttentionViTSubImages import ViT_LSTM_subimage
 from eidl.Models.ExtensionModels import ExpertTimmVisionTransformer
-from eidl.datasets.OCTDataset import load_oct_image
+from eidl.utils.image_utils import load_oct_image
 
 
-def get_vit_model(model_name, image_size, depth, device):
+def get_vit_model(model_name, image_size, depth, device, *args, **kwargs):
     if model_name == 'base':
         # model = ViT_LSTM(image_size=reverse_tuple(image_size), patch_size=(32, 16), num_classes=2, embed_dim=128, depth=depth, heads=1,
         #                  mlp_dim=2048, weak_interaction=False).to(device)
         model = ViT_LSTM(image_size=reverse_tuple(image_size), num_patches=32, num_classes=2, embed_dim=128, depth=depth, heads=1,
                          mlp_dim=2048, weak_interaction=False).to(device)
+    elif model_name == 'base_subimage':
+        model = ViT_LSTM_subimage(image_size=reverse_tuple(image_size), num_classes=2, embed_dim=128, depth=depth, heads=1,
+                         mlp_dim=2048, weak_interaction=False, *args, **kwargs).to(device) # NOTE, only this option supporst variable patch size
     else:  # assuming any other name is timm models
         model = timm.create_model(model_name, img_size=reverse_tuple(image_size), pretrained=True, num_classes=2)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
         model = ExpertTimmVisionTransformer(model).to(device)

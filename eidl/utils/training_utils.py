@@ -302,28 +302,28 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
     torch.save(model, os.path.join(results_dir, f'final_{model_config_string}.pt'))
     return train_loss_list, train_acc_list, valid_loss_list, valid_acc_list
 
-def test_without_fixation(model, data_loader, device):
-    total_samples = 0
-    total_correct = 0
-    model.train(False)
-    predicted_attentions = []
-    pbar = tqdm(total=math.ceil(len(data_loader.dataset) / data_loader.batch_size),
-                desc=f'Testing without fixaiton')
-    pbar.update(mini_batch_i := 0)
-
-    with torch.no_grad():
-        for batch in data_loader:
-            mini_batch_i += 1
-            pbar.update(1)
-
-            image, label, label_encoded, fixation_sequence, aoi_heatmap = batch
-            output, attention = model.test(image.to(device))
-            pred = F.softmax(output, dim=1)
-
-            predicted_attentions.append(attention.detach().cpu().numpy())
-            _, predictions = torch.max(pred, 1)
-            total_samples += (predictions.size(0))
-            total_correct += torch.sum(predictions == label.to(device)).item()
-
-    test_acc = (total_correct / total_samples)
-    return test_acc
+# def test_without_fixation(model, data_loader, device):
+#     total_samples = 0
+#     total_correct = 0
+#     model.train(False)
+#     predicted_attentions = []
+#     pbar = tqdm(total=math.ceil(len(data_loader.dataset) / data_loader.batch_size),
+#                 desc=f'Testing without fixaiton')
+#     pbar.update(mini_batch_i := 0)
+#
+#     with torch.no_grad():
+#         for batch in data_loader:
+#             mini_batch_i += 1
+#             pbar.update(1)
+#
+#             image, label, label_encoded, fixation_sequence, aoi_heatmap = batch
+#             output, attention = model.test(image.to(device))
+#             pred = F.softmax(output, dim=1)
+#
+#             predicted_attentions.append(attention.detach().cpu().numpy())
+#             _, predictions = torch.max(pred, 1)
+#             total_samples += (predictions.size(0))
+#             total_correct += torch.sum(predictions == label.to(device)).item()
+#
+#     test_acc = (total_correct / total_samples)
+#     return test_acc
