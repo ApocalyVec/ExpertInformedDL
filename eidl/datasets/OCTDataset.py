@@ -11,8 +11,9 @@ from sklearn import preprocessing
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset
 
-from eidl.utils.image_utils import generate_image_binary_mask, resize_image, load_oct_image, resize_subimages, \
-    z_norm_subimages
+from eidl.utils.image_utils import generate_image_binary_mask, resize_image, load_oct_image, pad_subimages, \
+    z_norm_subimages, get_heatmap
+from eidl.utils.model_utils import reverse_tuple
 
 
 def get_label(df_dir):
@@ -32,27 +33,6 @@ def get_sequence(df_dir):
     return sequences
 
 
-def get_heatmap(seq, grid_size):
-    """
-    get the heatmap from the fixations
-    Parameters
-    ----------
-    seq
-
-    Returns
-    -------
-
-    """
-    heatmap = np.zeros(grid_size)
-    grid_width, grid_height = grid_size
-    for i in seq:
-        heatmap[int(np.floor(i[0] * grid_width)), int(np.floor(i[1] * grid_height))] += 1
-    assert (heatmap.sum() == len(seq))
-    heatmap = heatmap / heatmap.sum()
-    assert abs(heatmap.sum() - 1) < 0.01, ValueError("no fixations sequence")
-    return heatmap
-
-
 class OCTDatasetV3(Dataset):
 
     def __init__(self, trial_samples, is_unique_images, compound_label_encoder):
@@ -70,9 +50,7 @@ class OCTDatasetV3(Dataset):
         self.compound_label_encoder = compound_label_encoder
 
         self.image_size = trial_samples[0]['image'].shape[1:]  # channel, width, height
-
         self.trial_samples = trial_samples
-
         # process unique images
         if is_unique_images:  # keep on images with unique names in the trial samples
             unique_name_trial_samples = []
@@ -84,12 +62,13 @@ class OCTDatasetV3(Dataset):
             self.trial_samples = unique_name_trial_samples
 
 
-    def create_aoi(self, grid_size):
+    def create_aoi(self, grid_size, use_subimages=False):
         """
         aoi size is equal to (num_patches_width, num_patches_height). So it depends on the model
         Parameters
         ----------
-        grid_size
+
+        image_size: tuple of int, width and height of the image, must be provided when use_subimages is True
 
         Returns
         -------
@@ -99,7 +78,44 @@ class OCTDatasetV3(Dataset):
             fixation_sequence = self.trial_samples[i]['fix_seq']
             if fixation_sequence is None:
                 raise ValueError(f"image at index {i} does not have corresponding fixation seq.")
-            aoi_from_fixation = get_heatmap(fixation_sequence, grid_size)
+
+            if use_subimages:
+                image_size = self.trial_samples[i]['original_image'].shape[:-1]
+                aoi_from_fixation = []
+                for s_image in self.trial_samples[i]['sub_images']:
+
+                    # keep the fixation sequence only to the within the subimage position
+                    grid = s_image['mask'].shape  # the grid size for an image is the same as the mask size
+                    percentage_position = [(x/image_size[1], y/image_size[0]) for x, y in s_image['position']]
+
+                    s_image_fix_sequence = np.array([(x, y) for x, y in fixation_sequence if percentage_position[0][0] <= x <= percentage_position[2][0]
+                                                                     and percentage_position[0][1] <= y <= percentage_position[2][1]])
+
+                    # plt.imshow(self.trial_samples[i]['original_image'])
+                    # fix_positions = np.array([(x * image_size[1], y * image_size[0]) for x, y in fixation_sequence])
+                    # plt.scatter(fix_positions[:, 0], fix_positions[:, 1], c='r', s=1)
+                    # fix_positions = np.array([(x * image_size[1], y * image_size[0]) for x, y in s_image_fix_sequence])
+                    # plt.scatter(fix_positions[:, 0], fix_positions[:, 1], c='b', s=4)
+                    # plt.show()
+
+                    # normalize the subimage fixation sequence with respect to its grid size
+
+                    if len(s_image_fix_sequence) > 0:
+                        s_image_fix_seq_normed = np.zeros_like(s_image_fix_sequence)
+                        s_image_fix_seq_normed[:, 0] = (s_image_fix_sequence[:, 0] - percentage_position[0][0]) / (percentage_position[2][0] - percentage_position[0][0])
+                        s_image_fix_seq_normed[:, 1] = (s_image_fix_sequence[:, 1] - percentage_position[0][1]) / (percentage_position[2][1] - percentage_position[0][1])
+                        aoi_heatmap = get_heatmap(s_image_fix_seq_normed, grid_size=grid, normalize=False)
+                    else:
+                        aoi_heatmap = np.zeros(grid_size)
+
+                    plt.imshow(aoi_heatmap)
+                    plt.show()
+                    aoi_from_fixation.append(aoi_heatmap.reshape(-1))
+                aoi_from_fixation = np.concatenate(aoi_from_fixation)
+                # normalize
+                aoi_from_fixation = aoi_from_fixation / aoi_from_fixation.sum()
+            else:
+                aoi_from_fixation = get_heatmap(fixation_sequence, grid_size=grid_size)
             self.trial_samples[i]['aoi'] = aoi_from_fixation
 
     def __len__(self):
@@ -130,11 +146,19 @@ def collate_fn(batch):
     # else:
     fixation_sequence = [torch.FloatTensor(item['fix_seq']) for item in batch]
     aoi_heatmap = torch.stack([torch.FloatTensor(item['aoi']) for item in batch], dim=0)
-
     original_image = torch.stack([torch.FloatTensor(item['image']) for item in batch], dim=0)
 
-    return img, label, label_encoded, fixation_sequence, aoi_heatmap, original_image
+    if 'sub_images' in batch[0].keys():
+        subimages = []
+        subimage_masks = []
+        n_subimages = len(batch[0]['sub_images'])
+        for i in range(n_subimages):
+            subimages.append(torch.stack([torch.FloatTensor(item['sub_images'][i]['image']) for item in batch], dim=0))
+            subimage_masks.append(torch.stack([torch.FloatTensor(item['sub_images'][i]['mask']) for item in batch], dim=0))
 
+        return {'subimages': subimages, 'masks': subimage_masks}, label, label_encoded, fixation_sequence, aoi_heatmap, original_image
+    else:
+        return img, label, label_encoded, fixation_sequence, aoi_heatmap, original_image
 
 def minmax_norm(x):
     x = x.copy()
@@ -221,7 +245,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
             cropped_image_data[k]['original_image'] = cropped_image_data[k].pop('image')
 
         # resize the subimages
-        cropped_image_data = resize_subimages(cropped_image_data, *args, **kwargs)
+        cropped_image_data = pad_subimages(cropped_image_data, *args, **kwargs)
 
         for k in cropped_image_data.keys():
             name_label_images_dict[k] = {**name_label_images_dict[k], **cropped_image_data[k]}
@@ -249,7 +273,6 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     for k, x in name_label_images_dict.items():
         # name_label_images_dict[k]['image'] = name_label_images_dict[k]['image'].transpose((2, 0, 1))  # no need to transpose the original image since it is not used in training
         name_label_images_dict[k]['image_z_normed'] = name_label_images_dict[k]['image_z_normed'].transpose((2, 0, 1))
-        # TODO transpose the subimages
         for s_image_name, s_image_data in name_label_images_dict[k]['sub_images'].items():
             name_label_images_dict[k]['sub_images'][s_image_name]['sub_image_cropped_padded_z_normed'] = s_image_data['sub_image_cropped_padded_z_normed'].transpose((2, 0, 1))
 
@@ -272,6 +295,17 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
                 continue
             trial_samples.append({**{'name': image_name, 'fix_seq': fixation_sequence}, **name_label_images_dict[image_name]})
             image_name_counts[image_name] += 1
+
+    subimage_names = list(trial_samples[0]['sub_images'].keys())
+    for i in range(len(trial_samples)):
+        subimages = trial_samples[i].pop('sub_images')
+        trial_samples[i]['sub_images'] = []
+        for s_image_name in subimage_names:
+            trial_samples[i]['sub_images'].append(
+                {'image': subimages[s_image_name]['sub_image_cropped_padded_z_normed'],
+                 'mask': subimages[s_image_name]['patch_mask'],
+                 'position': subimages[s_image_name]['position'],
+                 'name': s_image_name})
 
     print(f"Number of trials without fixation sequence {no_fixation_count} with {len(trial_samples)} valid trials")
     plt.hist(image_name_counts.values())
@@ -296,7 +330,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     plt.title("Number of images per label")
     plt.show()
 
-    return trial_samples, name_label_images_dict, image_labels, {'image_means': image_means, 'image_stds': image_stds, 'subimage_mean': subimage_mean, 'subimage_std': subimage_std}
+    return trial_samples, name_label_images_dict, image_labels, {'image_means': image_means, 'image_stds': image_stds, 'subimage_mean': subimage_mean, 'subimage_std': subimage_std, 'subimage_sizes': [x['image'].shape[1:] for x in trial_samples[0]['sub_images']]}
 
 class CompoundLabelEncoder:
 

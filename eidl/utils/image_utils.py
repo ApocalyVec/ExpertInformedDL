@@ -77,7 +77,7 @@ def pad_image(image, max_n_patches, patch_size):
     return image_padded, patch_mask
 
 
-def resize_subimages(cropped_image_data, patch_size=(32, 32)):
+def pad_subimages(cropped_image_data, patch_size=(32, 32)):
     """
     sub image pad to max size
         'En-face_52.0micrometer_Slab_(Retina_View)':
@@ -103,20 +103,20 @@ def resize_subimages(cropped_image_data, patch_size=(32, 32)):
 
     counter = 0
     for i, s_image_name in enumerate(sub_image_names):
-        sub_images = {image_name: image_data['sub_images'][s_image_name]['sub_image'] for image_name, image_data in cropped_image_data.items()}
-        max_size = max([s_image.shape[:2] for s_image in sub_images.values()])
+        sub_images = {image_name: (image_data['sub_images'][s_image_name]['sub_image'], image_data['sub_images'][s_image_name]['position']) for image_name, image_data in cropped_image_data.items()}
+        max_size = max([s_image.shape[:2] for (s_image, _) in sub_images.values()])
         max_size = (max_size[0] // patch_size[0] * patch_size[0], max_size[1] // patch_size[1] * patch_size[1])
         max_n_patches = (max_size[0] // patch_size[0], max_size[1] // patch_size[1])
 
         print(f"resizing sub-images {s_image_name}, {i + 1}/{len(sub_image_names)}, they will be cropped&padded to {max_size}, with {max_n_patches} patches ({patch_size=})")
         # find the max patchifiable size, round down
 
-        for image_name, s_image in sub_images.items():
+        for image_name, (s_image, position) in sub_images.items():
             temp = crop_image(s_image, patch_size)
 
             cropped_image_data[image_name]['sub_images'][s_image_name]['sub_image_cropped_padded'], \
                 cropped_image_data[image_name]['sub_images'][s_image_name]['patch_mask'] = pad_image(temp, max_n_patches, patch_size)
-
+            cropped_image_data[image_name]['sub_images'][s_image_name]['position'] = position
             # plt.imsave(f'C:/Users/apoca/Downloads/temp/{counter}_{s_image_name}_Aoriginal_subimage.png', s_image)
             # plt.imsave(f'C:/Users/apoca/Downloads/temp/{counter}_{s_image_name}_Bimage_cropped.png', temp)
             # plt.imsave(f'C:/Users/apoca/Downloads/temp/{counter}_{s_image_name}_Cimage_padded.png', cropped_image_data[image_name]['sub_images'][s_image_name]['sub_image_cropped_padded'])
@@ -145,3 +145,28 @@ def z_norm_subimages(name_label_images_dict):
             # s_image_data['sub_image_cropped_padded_z_normed'] = (s_image_data['sub_image_cropped_padded'] - all_mean) / all_std
 
     return name_label_images_dict, all_mean, all_std
+
+
+def get_heatmap(seq, grid_size, normalize=True):
+    """
+    get the heatmap from the fixations
+    Parameters
+
+    grid_size: tuple of ints
+    patch_size:
+    ----------
+    seq
+
+    Returns
+    -------
+
+    """
+    heatmap = np.zeros(grid_size)
+    grid_height, grid_width = grid_size
+    for i in seq:
+        heatmap[int(np.floor(i[1] * grid_height)), int(np.floor(i[0] * grid_width))] += 1
+    assert (heatmap.sum() == len(seq))
+    if normalize:
+        heatmap = heatmap / heatmap.sum()
+        assert abs(heatmap.sum() - 1) < 0.01, ValueError("no fixations sequence")
+    return heatmap

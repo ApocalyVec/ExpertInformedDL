@@ -1,9 +1,12 @@
+from typing import Iterable
+
 import torch
 from torch import nn
 
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 import torch.nn.utils.rnn as rnn_utils
+import torch.nn.functional as F
 
 
 def pair(t):
@@ -56,11 +59,16 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+
+        if mask is not None:
+            mask = rearrange(mask, 'b ... -> b (...)')
+            mask = F.pad(mask, (x.shape[-2] - mask.shape[-1], 0), value = True)
+            dots = dots.masked_fill(~mask, -torch.finfo(dots.dtype).max)
 
         attn = self.attend(dots)
         attn = self.dropout(attn)
@@ -142,7 +150,7 @@ class ViT_LSTM(nn.Module):
 
         Parameters
         ----------
-        image_size
+        image_size: can either be a list of int, or a list of list of int, in the later case, it will be treated as the sizes for the subimages
         num_classes
         embed_dim
         depth
@@ -165,20 +173,27 @@ class ViT_LSTM(nn.Module):
         self.num_dim_fixation = 2
         self.rnn_hidden_dim = 64
         self.num_layers = 2
-        image_height, image_width = image_size
+
         self.image_size = image_size
+        # if type(image_size[0]) is list:
+
 
         assert num_patches is not None or patch_size is not None, 'Either num_patches or patch_size must be specified.'
-        if patch_size is None:
+        if num_patches is not None:
+            print("computing number of patches from num_patches")
+            assert not isinstance(image_size[0], Iterable), "subimages is not supported when num_patches is specified"
+            image_width, image_height = image_size
             self.patch_height, self.patch_width = int(image_height / num_patches), int(image_width / num_patches)
             self.grid_size = num_patches, num_patches
-        else:
+            assert image_height % self.grid_size[1] == 0 and image_width % self.grid_size[0] == 0, 'Image dimensions must be divisible by the number of patches.'
+            self.num_patches = (image_height // self.patch_height) * (image_width // self.patch_width)
+
+        elif patch_size is not None:
+            print("computing number of patches from patch_size and image size")
             self.patch_height, self.patch_width = patch_size
-            self.grid_size = int(image_height / self.patch_height), int(image_width / self.patch_width)
-
-        assert image_height % self.grid_size[1] == 0 and image_width % self.grid_size[0] == 0, 'Image dimensions must be divisible by the patch size.'
-
-        self.num_patches = (image_height // self.patch_height) * (image_width // self.patch_width)
+            self.grid_size = [(int(w / self.patch_height), int(h / self.patch_width)) for w, h in image_size]
+            assert all([w % self.grid_size[i][0] == 0 and h % self.grid_size[i][1] == 0 for i, (w, h) in enumerate(image_size)]), 'Image dimensions must be divisible by the patch size.'
+            self.num_patches = sum([w * h for (w, h) in self.grid_size])
         patch_dim = channels * self.patch_height * self.patch_width
         assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
@@ -210,7 +225,7 @@ class ViT_LSTM(nn.Module):
         self.lstm = nn.LSTM(self.num_dim_fixation, self.rnn_hidden_dim, num_layers=self.num_layers, bidirectional=False,
                             batch_first=True)
 
-    def forward(self, img, *args, **kwargs):
+    def forward(self, img, collapse_attention_matrix=True, *args, **kwargs):
         x = self.to_patch_embedding(img)
         return self._encode(x, *args, **kwargs)
 
@@ -223,7 +238,7 @@ class ViT_LSTM(nn.Module):
         x += self.pos_embedding[:, :(n + 1)]
         x = self.dropout(x)
 
-        x, att_matrix = self.transformer(x)
+        x, att_matrix = self.transformer(x, *args, **kwargs)
         if collapse_attention_matrix:
             att_matrix = att_matrix[:, :, 1:, 1:]
             att_matrix = att_matrix / torch.sum(att_matrix, dim=3, keepdim=True)

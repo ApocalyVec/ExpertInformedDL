@@ -2,6 +2,7 @@ import os
 import pickle
 import tempfile
 import urllib
+from typing import Iterable
 
 import timm
 import torch
@@ -13,17 +14,23 @@ from eidl.utils.image_utils import load_oct_image
 
 
 def get_vit_model(model_name, image_size, depth, device, *args, **kwargs):
+    # if type(image_size[0]) == int:
+    #     image_size = swap_tuple(image_size, 0, -1)
+    # if isinstance(image_size[0], Iterable):
+    #     image_size = [swap_tuple(x, 0, -1) for x in image_size]
     if model_name == 'base':
         # model = ViT_LSTM(image_size=reverse_tuple(image_size), patch_size=(32, 16), num_classes=2, embed_dim=128, depth=depth, heads=1,
         #                  mlp_dim=2048, weak_interaction=False).to(device)
-        model = ViT_LSTM(image_size=reverse_tuple(image_size), num_patches=32, num_classes=2, embed_dim=128, depth=depth, heads=1,
+        model = ViT_LSTM(image_size=image_size, num_patches=32, num_classes=2, embed_dim=128, depth=depth, heads=1,
                          mlp_dim=2048, weak_interaction=False).to(device)
     elif model_name == 'base_subimage':
-        model = ViT_LSTM_subimage(image_size=reverse_tuple(image_size), num_classes=2, embed_dim=128, depth=depth, heads=1,
-                         mlp_dim=2048, weak_interaction=False, *args, **kwargs).to(device) # NOTE, only this option supporst variable patch size
-    else:  # assuming any other name is timm models
+        model = ViT_LSTM_subimage(image_size=image_size, num_classes=2, embed_dim=128, depth=depth, heads=1,
+                         mlp_dim=2048, weak_interaction=False, *args, **kwargs).to(device)  # NOTE, only this option supporst variable patch size
+    elif model_name == 'pretrained':  # assuming any other name is timm models
         model = timm.create_model(model_name, img_size=reverse_tuple(image_size), pretrained=True, num_classes=2)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
         model = ExpertTimmVisionTransformer(model).to(device)
+    else:
+        raise ValueError(f"model name {model_name} is not supported")
     return model, model.get_grid_size()
 
 def reverse_tuple(t):
@@ -31,6 +38,11 @@ def reverse_tuple(t):
         return t
     else:
         return(t[-1],)+reverse_tuple(t[:-1])
+
+def swap_tuple(t, i, j):
+    t = list(t)
+    t[i], t[j] = t[j], t[i]
+    return tuple(t)
 
 def parse_model_parameter(model_config_string: str, parameter_name: str):
     assert parameter_name in model_config_string

@@ -204,10 +204,19 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
 
             image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_= batch
             fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
-            output, attention = model(image.to(device), fixation_sequence=fixation_sequence_torch.to(device))
+            if type(image) == list or type(image) == tuple:
+                image = [[x.to(device) for x in y] for y in image]
+            elif type(image) == dict:
+                image = {k: [x.to(device) for x in v] for k, v in image.items()}
+            else:
+                image = image.to(device)
+            output, attention = model(image, fixation_sequence=fixation_sequence_torch.to(device))
             # pred = F.softmax(output, dim=1)
 
-            aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
+            # check the aoi needs to be flattened
+            if len(aoi_heatmap.shape) == 3:  # batch, height, width
+                aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
+
             attention = torch.sum(attention, dim=1)  # summation across the heads
             attention /= torch.sum(attention, dim=1, keepdim=True)  # normalize the attention output
 

@@ -90,9 +90,10 @@ if __name__ == '__main__':
     folds, test_dataset, image_stats = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs,
                                                                                 cropped_image_data_path=cropped_image_data_path,
                                                                                 patch_size=patch_size)
+    pickle.dump(folds, open(os.path.join(results_dir, 'folds.p'), 'wb'))
+    pickle.dump(test_dataset, open(os.path.join(results_dir, 'test_dataset.p'), 'wb'))
     pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
     pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
-    # test_dataset = get_oct_dataset(test_image_path, test_image_main, image_size=image_size, n_jobs=n_jobs)
 
     train_dataset, valid_dataset = folds[0]  # TODO using only one fold for now
 
@@ -101,12 +102,11 @@ if __name__ == '__main__':
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
     # save the data loader # TODO use test and save folds in the future
-    pickle.dump(folds, open(os.path.join(results_dir, 'folds.p'), 'wb'))
-    pickle.dump(test_dataset, open(os.path.join(results_dir, 'test_dataset.p'), 'wb'))
+
 
     parameters = set()
     for depth, alpha, model_name, lr, aoi_loss_dist in itertools.product(depths, alphas, model_names, lrs, aoi_loss_distance_types):
-        if model_name != 'base':
+        if model_name == 'pretrained':
             this_lr = lr * non_pretrained_lr_scaling
             this_depth = None  # depth does not affect the pretrained model
         else:
@@ -116,12 +116,12 @@ if __name__ == '__main__':
 
     for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
         depth, alpha, model_name, lr, aoi_loss_dist = parameter
-        model, grid_size = get_vit_model(model_name, image_size=image_size, depth=depth, device=device, patch_size=patch_size)
+        model, grid_size = get_vit_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
         model_config_string = f'model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_depth-{model.depth}_lr-{lr}'
         print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
 
-        train_dataset.create_aoi(grid_size)
-        valid_dataset.create_aoi(grid_size)
+        train_dataset.create_aoi(grid_size=grid_size, use_subimages=True)
+        valid_dataset.create_aoi(grid_size=grid_size, use_subimages=True)
 
         optimizer = optim.Adam(model.parameters(), lr=lr)
 
