@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 from eidl.datasets.OCTDataset import get_oct_test_train_val_folds, collate_fn
 from eidl.utils.model_utils import get_vit_model
-from eidl.utils.training_utils import train_oct_model
+from eidl.utils.training_utils import train_oct_model, get_class_weight
 
 # User parameters ##################################################################################
 
@@ -101,8 +101,8 @@ if __name__ == '__main__':
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
+    class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
     # save the data loader # TODO use test and save folds in the future
-
 
     parameters = set()
     for depth, alpha, model_name, lr, aoi_loss_dist in itertools.product(depths, alphas, model_names, lrs, aoi_loss_distance_types):
@@ -128,6 +128,6 @@ if __name__ == '__main__':
         criterion = nn.CrossEntropyLoss()
         train_loss_list, train_acc_list, valid_loss_list, valid_acc_list = train_oct_model(
             model, model_config_string, train_loader, valid_loader, results_dir=results_dir, optimizer=optimizer, num_epochs=epochs,
-            alpha=alpha, dist=aoi_loss_dist, l2_weight=None)
+            alpha=alpha, dist=aoi_loss_dist, l2_weight=None, class_weights=class_weights)
 
     # viz_oct_results(results_dir, test_image_path, test_image_main, batch_size, image_size, n_jobs=n_jobs)

@@ -1,5 +1,6 @@
 from typing import Iterable
 
+import einops
 import torch
 from torch import nn
 
@@ -21,8 +22,8 @@ class PreNorm(nn.Module):
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
 
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+    def forward(self, x,  *args, **kwargs):
+        return self.fn(self.norm(x), *args, **kwargs)
 
 
 class FeedForward(nn.Module):
@@ -59,7 +60,7 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, *args, **kwargs):
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
 
@@ -67,8 +68,10 @@ class Attention(nn.Module):
 
         if mask is not None:
             mask = rearrange(mask, 'b ... -> b (...)')
-            mask = F.pad(mask, (x.shape[-2] - mask.shape[-1], 0), value = True)
-            dots = dots.masked_fill(~mask, -torch.finfo(dots.dtype).max)
+            mask = F.pad(mask, (x.shape[-2] - mask.shape[-1], 0), value=True)  # class token is always valid
+            square_mask = torch.einsum('bi,bj->bij', mask, mask)
+            square_mask = einops.repeat(square_mask, 'b ... -> b h ...', h=self.heads)
+            dots = dots.masked_fill(~square_mask, -torch.finfo(dots.dtype).max)
 
         attn = self.attend(dots)
         attn = self.dropout(attn)
@@ -88,9 +91,9 @@ class Transformer(nn.Module):
                 PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
             ]))
 
-    def forward(self, x):
+    def forward(self, x, *args, **kwargs):
         for attn, ff in self.layers:
-            out, alpha = attn(x)
+            out, alpha = attn(x, *args, **kwargs)
             x = out + x
             x = ff(x) + x
         return x, alpha  # last layer

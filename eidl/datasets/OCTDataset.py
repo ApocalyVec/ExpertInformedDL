@@ -51,6 +51,7 @@ class OCTDatasetV3(Dataset):
 
         self.image_size = trial_samples[0]['image'].shape[1:]  # channel, width, height
         self.trial_samples = trial_samples
+        self.labels_encoded = torch.tensor([x['label_encoded'] for x in trial_samples])
         # process unique images
         if is_unique_images:  # keep on images with unique names in the trial samples
             unique_name_trial_samples = []
@@ -106,10 +107,9 @@ class OCTDatasetV3(Dataset):
                         s_image_fix_seq_normed[:, 1] = (s_image_fix_sequence[:, 1] - percentage_position[0][1]) / (percentage_position[2][1] - percentage_position[0][1])
                         aoi_heatmap = get_heatmap(s_image_fix_seq_normed, grid_size=grid, normalize=False)
                     else:
-                        aoi_heatmap = np.zeros(grid_size)
-
-                    plt.imshow(aoi_heatmap)
-                    plt.show()
+                        aoi_heatmap = np.zeros(grid)
+                    # plt.imshow(aoi_heatmap)
+                    # plt.show()
                     aoi_from_fixation.append(aoi_heatmap.reshape(-1))
                 aoi_from_fixation = np.concatenate(aoi_from_fixation)
                 # normalize
@@ -154,7 +154,7 @@ def collate_fn(batch):
         n_subimages = len(batch[0]['sub_images'])
         for i in range(n_subimages):
             subimages.append(torch.stack([torch.FloatTensor(item['sub_images'][i]['image']) for item in batch], dim=0))
-            subimage_masks.append(torch.stack([torch.FloatTensor(item['sub_images'][i]['mask']) for item in batch], dim=0))
+            subimage_masks.append(torch.stack([torch.BoolTensor(item['sub_images'][i]['mask']) for item in batch], dim=0))
 
         return {'subimages': subimages, 'masks': subimage_masks}, label, label_encoded, fixation_sequence, aoi_heatmap, original_image
     else:
@@ -317,6 +317,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     # plot the distribution of among trials and among images
     image_labels = np.array([v['label'] for v in name_label_images_dict.values()])
     unique_labels = np.unique(image_labels)
+
     plt.bar(np.arange(len(unique_labels)), [np.sum(image_labels==l) for l in unique_labels])
     plt.xlabel("Number of images")
     plt.xticks(np.arange(len(unique_labels)), unique_labels)
@@ -329,6 +330,20 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     plt.xticks(np.arange(len(unique_labels)), unique_labels)
     plt.title("Number of images per label")
     plt.show()
+
+    # change suspect label to certain label
+    for trial in trial_samples:
+        if 'G_Suspects' in trial['label']:
+            trial['label'] = 'G'
+        elif 'S_Suspects' in trial['label']:
+            trial['label'] = 'S'
+
+    for image_name, image_data in name_label_images_dict.items():
+        if 'G_Suspects' in image_data['label']:
+            image_data['label'] = 'G'
+        elif 'S_Suspects' in image_data['label']:
+            image_data['label'] = 'S'
+    image_labels = np.array([v['label'] for v in name_label_images_dict.values()])
 
     return trial_samples, name_label_images_dict, image_labels, {'image_means': image_means, 'image_stds': image_stds, 'subimage_mean': subimage_mean, 'subimage_std': subimage_std, 'subimage_sizes': [x['image'].shape[1:] for x in trial_samples[0]['sub_images']]}
 

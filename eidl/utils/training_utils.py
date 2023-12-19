@@ -187,8 +187,9 @@ def run_validation(model: nn.Module, val_loader, device, dist=None, alpha=None, 
 
         return epoch_loss, epoch_acc
 
-def train_oct_model(model, model_config_string, train_loader, valid_loader, optimizer, results_dir, *, criterion=nn.CrossEntropyLoss, num_epochs=100, alpha=0.01, l2_weight=None, dist='cross-entropy'):
-    def run_train(model: nn.Module, train_loader, optimizer, device):
+def train_oct_model(model, model_config_string, train_loader, valid_loader, optimizer, results_dir,
+                    criterion=nn.CrossEntropyLoss, num_epochs=100, alpha=0.01, l2_weight=None, dist='cross-entropy', *args, **kwargs):
+    def run_train(model: nn.Module, train_loader, optimizer, device, class_weights, *args, **kwargs):
         model.train()
         total_samples = 0
         total_loss = 0.0
@@ -221,8 +222,10 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
             attention /= torch.sum(attention, dim=1, keepdim=True)  # normalize the attention output
 
             y_tensor = label_onehot_encoded.to(device)
-            class_weight = get_class_weight(y_tensor, n_classes=2)
-            classification_loss = criterion(weight=class_weight)(output, y_tensor)
+            if class_weights is not None:
+                classification_loss = criterion(weight=class_weights)(output, y_tensor)
+            else:
+                classification_loss = criterion()(output, y_tensor)
             if dist == 'cross-entropy':
                 attention_loss = alpha * F.cross_entropy(attention, aoi_heatmap.to(device))
             elif dist == 'Wasserstein':
@@ -286,7 +289,7 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
     for epoch in range(num_epochs):
         print('epoch:{:d} / {:d}'.format(epoch, num_epochs))
         print('*' * 100)
-        train_loss, train_acc = run_train(model, train_loader, optimizer, device=device)
+        train_loss, train_acc = run_train(model, train_loader, optimizer, device=device,*args, **kwargs)
         train_loss_list.append(train_loss)
         train_acc_list.append(train_acc)
         valid_loss, valid_acc = run_validation(model, valid_loader, dist=dist, device=device, model_config_string=model_config_string, criterion=criterion, alpha=alpha)

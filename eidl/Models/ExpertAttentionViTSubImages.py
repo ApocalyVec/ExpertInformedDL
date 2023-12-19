@@ -8,7 +8,7 @@ import torch.nn.utils.rnn as rnn_utils
 from eidl.Models.ExpertAttentionViT import ViT_LSTM
 
 
-class ViT_LSTM_subimage(ViT_LSTM):
+class ViT_LSTM_subimage(nn.Module):
     def __init__(self, *args, **kwargs):
         """
 
@@ -30,7 +30,9 @@ class ViT_LSTM_subimage(ViT_LSTM):
         the same number of patches across height and width
         patch_size: tuple: tuple of two integers, in pixels (height, width)
         """
-        super().__init__(*args, **kwargs)
+        super().__init__()
+        self.ViT = ViT_LSTM(*args, **kwargs)
+        self.depth = self.ViT.depth
 
     def forward(self, img, collapse_attention_matrix=True, *args, **kwargs):
         '''
@@ -50,19 +52,15 @@ class ViT_LSTM_subimage(ViT_LSTM):
         # apply patch embedding to each subimage
 
         # flatten the mask for the attention layer
-        subimage_xs = [self.to_patch_embedding(x) for x in img['subimages']]
-        masks = [m for m in img['masks']]
+        subimage_xs = [self.ViT.to_patch_embedding(x) for x in img['subimages']]
+        mask = [torch.flatten(m, 1, 2) for m in img['masks']]
+        mask = torch.cat(mask, dim=1)
         # concatenate the subimage patches
-
         x = torch.cat(subimage_xs, dim=1)
-        x = self.to_patch_embedding(img)
 
-        # TODO check if the patch masks are correct
+        return self.ViT._encode(x, collapse_attention_matrix=collapse_attention_matrix, mask=mask, *args, **kwargs)
 
-        # TODO check the mask in the attention class
 
-        # TODO change the AOI to match the subiamge patches
-
-        return self._encode(x, *args, **kwargs)
-
+    def get_grid_size(self):
+        return self.ViT.get_grid_size()
 
