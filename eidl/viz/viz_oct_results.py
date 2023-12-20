@@ -2,7 +2,7 @@ import os
 import pickle
 
 import cv2
-import imageio as imageio
+import imageio
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -12,12 +12,13 @@ from matplotlib.colors import LinearSegmentedColormap
 from torch.utils.data import DataLoader
 
 from eidl.datasets.OCTDataset import collate_fn
+from eidl.utils.image_utils import remap_subimage_attention_rolls
 from eidl.utils.iter_utils import chunker
 from eidl.utils.model_utils import parse_model_parameter
-from eidl.utils.training_utils import run_validation
 from eidl.viz.vit_rollout import VITAttentionRollout
 
-from eidl.viz.viz_utils import plt2arr
+from eidl.viz.viz_utils import plt2arr, plot_train_history
+
 
 def register_cmap_with_alpha(cmap_name):
     # get colormap
@@ -61,7 +62,6 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
     # load the test dataset ############################################################################################
     test_dataset = pickle.load(open(os.path.join(results_dir, 'test_dataset.p'), 'rb'))
 
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     model_config_strings = [i.strip('log_').strip('.txt') for i in os.listdir(results_dir) if i.startswith('log')]
     columns = ['model_name', 'train acc', 'train loss', 'validation acc', 'validation loss', 'test acc']
     results_df = pd.DataFrame(columns=columns)
@@ -80,17 +80,15 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
             val_loss, val_acc = [np.nan if x == '' else float(x) for x in epoch_lines[2].strip('validation: ').split(",")]
             results.append((train_acc, train_loss, val_acc, val_loss))
         results = np.array(results)
-        best_val_acc_epoch_index = np.argmax(results[:, 2])
-
+        # best_val_acc_epoch_index = np.argmax(results[:, 2])
         # test_acc = test_without_fixation(model, test_loader, device)  # TODO restore the test_acc after adding test method to extention
-        test_acc = None
-
         # add viz pca of patch embeddings, attention rollout (gif and overlay), and position embeddings,
-        values = [model_config_string, *results[best_val_acc_epoch_index], test_acc]
-        results_df = results_df.append(dict(zip(columns, values)), ignore_index=True)
-        results_dict[model_config_string] = [*results[best_val_acc_epoch_index], test_acc, model]  # also save the model
+        # values = [model_config_string, *results[best_val_acc_epoch_index], test_acc]
+        # results_df = pd.concat([results_df, pd.DataFrame(dict(zip(columns, values)))], ignore_index=True) # TODO fix the concat
+        test_acc = None
+        results_dict[model_config_string] = {'model_config_string': model_config_string, 'train_accs': results[:, 0], 'train_losses': results[:, 1], 'val_accs': results[:, 2], 'val_losses': results[:, 3], 'test_acc': test_acc, 'model': model}  # also save the model
 
-    results_df.to_csv(os.path.join(results_dir, "summary.csv"))
+    # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
 
     # visualize the val acc across alpha ###############################################################################
     alphas = {parse_model_parameter(x, 'alpha') for x in model_config_strings}
@@ -123,7 +121,7 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
                 val_acc_alpha = []
                 for model_config_string, results in results_dict.items():
                     if parse_model_parameter(model_config_string, 'alpha') == alpha and parse_model_parameter(model_config_string, 'model') == model:
-                        val_acc_alpha.append(results[2])
+                        val_acc_alpha.append(np.max(results['val_accs']))
                 val_accs.append(val_acc_alpha)
             x_positions = xticks + model_x_offset * i
             plt.boxplot(val_accs, positions=x_positions, patch_artist=True, widths=box_width, boxprops=dict(facecolor=colors[i*2+1], alpha=0.5, color=colors[i*2]), whiskerprops=dict(color=colors[i*2]), capprops=dict(color=colors[i*2]), medianprops=dict(color=colors[i*2]))
@@ -156,7 +154,7 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
                         val_acc_hyperparam_alpha = []
                         for model_config_string, results in results_dict.items():
                             if parse_model_parameter(model_config_string, hyperparam_name) == hyper_param and parse_model_parameter(model_config_string, 'alpha') == alpha and parse_model_parameter(model_config_string, 'model') == model:
-                                val_acc_hyperparam_alpha.append(results[2])
+                                val_acc_hyperparam_alpha.append(np.max(results['val_accs']))
                         val_accs[j, k] = np.mean(val_acc_hyperparam_alpha)
                         plt.text(k, j, round(float(np.mean(val_acc_hyperparam_alpha)), 3))
                 plt.imshow(val_accs, vmin=acc_min, vmax=acc_max)
@@ -175,93 +173,106 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
         # model = 'vit_small_patch32_224_in21k'
         # model = 'base'
         best_model_val_acc = -np.inf
-        best_model_config_string = list(results_dict)[0]
-        best_model_results = results_dict[best_model_config_string]
+        best_model_config_string = None
+        best_model_results = None
         for model_config_string, results in results_dict.items():
-            this_val_acc = results[2]
+            this_val_acc = np.max(results['val_accs'])
             if parse_model_parameter(model_config_string, 'model') == model and this_val_acc > best_model_val_acc:
                 best_model_val_acc = this_val_acc
                 best_model_config_string = model_config_string
                 best_model_results = results
 
         print(f"Best model for {model} has val acc of {best_model_val_acc} with parameters: {best_model_config_string}")
-        best_model = best_model_results[-1]
+        best_model = best_model_results['model']
         model_depth = best_model.depth
-        # register target cmap
-        with torch.no_grad():
-            best_model.eval()
-            test_loader.dataset.create_aoi(best_model.grid_size)
-            epoch_loss, epoch_acc = run_validation(best_model, test_loader, device)
-            print(f"Test acc: {epoch_acc}")
-            vit_rollout = VITAttentionRollout(best_model,device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.5)
-            sample_count = 0
 
-            if plot_format == 'grid':
-                fig, axs = plt.subplots(model_depth + 2, num_plot, figsize=(2 * num_plot, 2 * (model_depth + 2)))
-                plt.setp(axs, xticks=[], yticks=[])
-                plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.05, hspace=0.05)
-                fig.tight_layout()
+    # visualize the training history of the best model ##################################################################
+    plot_train_history(best_model_results, note=f"{best_model_config_string}")
 
-            for batch in test_loader:
-                batch_images, batch_labels_encoded, batch_labels_onehot_encoded, batch_fixation_sequences, batch_aoi_heatmaps, batch_images_original = batch
-                for image, fix_sequence, aoi_heatmap, image_original in zip(batch_images, batch_fixation_sequences, batch_aoi_heatmaps, batch_images_original):
-                    rolls = []
-                    for roll_depth in range(best_model.depth):
-                        rolls.append(vit_rollout(depth=roll_depth, input_tensor=image.unsqueeze(0), fix_sequence=fix_sequence.unsqueeze(0)))
+    # register target cmap #########################################################
+    has_subimage = test_dataset.trial_samples[0].keys()
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn)  # one image at a time
 
-                    image_original = np.array(image_original.numpy(), dtype=np.uint8)
-
-                    if plot_format == 'individual':
-                        fig_list = []
-                        # plot the original image
-                        fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                        plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                        plt.axis('off')
-                        plt.title(f'#{sample_count}, original image')
-                        plt.show()
-                        fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_originalImage.png')
-                        fig_list.append(plt2arr(fig))
-                        # plot the original image with expert AOI heatmap
-                        fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                        plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                        _aoi_heatmap = cv2.resize(aoi_heatmap.numpy(), dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
-                        plt.imshow(_aoi_heatmap.T, cmap=cmap_name, alpha=rollout_alpha)
-                        plt.axis('off')
-                        plt.title(f'#{sample_count}, expert AOI')
-                        plt.show()
-                        fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}__expertAOI.png')
-
-                        for i, roll in enumerate(rolls):
-                            rollout_image = cv2.resize(roll, dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
-                            fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                            plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                            plt.imshow(rollout_image.T, cmap=cmap_name, alpha=rollout_alpha)
-                            plt.axis('off')
-                            plt.title(f'#{sample_count}, model {model}, , roll depth {i}')
-                            plt.show()
-                            # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
-                            fig_list.append(plt2arr(fig))
-                        imageio.mimsave(f'gifs/model-{model}_valImageIndex-{sample_count}.gif', fig_list, fps=2)  # TODO expose save dir
-                    elif plot_format == 'grid' and sample_count < num_plot:
-                            axis_original_image, axis_aoi_heatmap, axes_roll = axs[0, sample_count], axs[1, sample_count], axs[2:, sample_count]
-                            axis_original_image.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                            axis_original_image.axis('off')
-                            # axis_original_image.title(f'#{sample_count}, original image')
-
-                            # plot the original image with expert AOI heatmap
-                            axis_aoi_heatmap.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                            _aoi_heatmap = cv2.resize(aoi_heatmap.numpy(), dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
-                            axis_aoi_heatmap.imshow(_aoi_heatmap.T, cmap=cmap_name, alpha=rollout_alpha)
-                            axis_aoi_heatmap.axis('off')
-                            # axis_aoi_heatmap.title(f'#{sample_count}, expert AOI')
-
-                            for i, roll in enumerate(rolls):
-                                rollout_image = cv2.resize(roll, dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
-                                axes_roll[i].imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                                axes_roll[i].imshow(rollout_image.T, cmap=cmap_name, alpha=rollout_alpha)
-                                axes_roll[i].axis('off')
-                                # axes_roll[i].title(f'#{sample_count}, model {model}, , roll depth {i}')
-                    sample_count += 1
+    with torch.no_grad():
+        best_model.eval()
+        test_dataset.create_aoi(best_model.grid_size)
+        # epoch_loss, epoch_acc = run_validation(best_model, test_loader, device)
+        # print(f"Test acc: {epoch_acc}")
+        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.5)
+        sample_count = 0
 
         if plot_format == 'grid':
-            plt.show()
+            fig, axs = plt.subplots(model_depth + 2, num_plot, figsize=(2 * num_plot, 2 * (model_depth + 2)))
+            plt.setp(axs, xticks=[], yticks=[])
+            plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.05, hspace=0.05)
+            fig.tight_layout()
+
+        for batch in test_loader:
+            image, label, label_encoded, fix_sequence, aoi_heatmap, original_image, *rest = batch
+            if has_subimage:
+                subimage_positions = rest[0]
+
+            rolls = []
+            for roll_depth in range(best_model.depth):
+                rolls.append(vit_rollout(depth=roll_depth, input_tensor=image.unsqueeze(0), fix_sequence=fix_sequence))
+
+            image_original = np.array(image_original.numpy(), dtype=np.uint8)
+
+            if plot_format == 'individual':
+                fig_list = []
+                # plot the original image
+                fig = plt.figure(figsize=(15, 10), constrained_layout=True)
+                plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                plt.axis('off')
+                plt.title(f'#{sample_count}, original image')
+                plt.show()
+                fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_originalImage.png')
+                fig_list.append(plt2arr(fig))
+                # plot the original image with expert AOI heatmap
+                fig = plt.figure(figsize=(15, 10), constrained_layout=True)
+                plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                _aoi_heatmap = cv2.resize(aoi_heatmap.numpy(), dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
+                plt.imshow(_aoi_heatmap.T, cmap=cmap_name, alpha=rollout_alpha)
+                plt.axis('off')
+                plt.title(f'#{sample_count}, expert AOI')
+                plt.show()
+                fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}__expertAOI.png')
+
+                for i, roll in enumerate(rolls):
+                    if has_subimage:
+                        rollout_image = remap_subimage_attention_rolls(rolls, image['masks'], subimage_positions, image_original.shape[1:])
+                    else:
+                        rollout_image = cv2.resize(roll, dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4).T
+
+                    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
+                    plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                    plt.imshow(rollout_image, cmap=cmap_name, alpha=rollout_alpha)
+                    plt.axis('off')
+                    plt.title(f'#{sample_count}, model {model}, , roll depth {i}')
+                    plt.show()
+                    # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
+                    fig_list.append(plt2arr(fig))
+                imageio.mimsave(f'gifs/model-{model}_valImageIndex-{sample_count}.gif', fig_list, fps=2)  # TODO expose save dir
+            elif plot_format == 'grid' and sample_count < num_plot:
+                    axis_original_image, axis_aoi_heatmap, axes_roll = axs[0, sample_count], axs[1, sample_count], axs[2:, sample_count]
+                    axis_original_image.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                    axis_original_image.axis('off')
+                    # axis_original_image.title(f'#{sample_count}, original image')
+
+                    # plot the original image with expert AOI heatmap
+                    axis_aoi_heatmap.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                    _aoi_heatmap = cv2.resize(aoi_heatmap.numpy(), dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
+                    axis_aoi_heatmap.imshow(_aoi_heatmap.T, cmap=cmap_name, alpha=rollout_alpha)
+                    axis_aoi_heatmap.axis('off')
+                    # axis_aoi_heatmap.title(f'#{sample_count}, expert AOI')
+
+                    for i, roll in enumerate(rolls):
+                        rollout_image = cv2.resize(roll, dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
+                        axes_roll[i].imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                        axes_roll[i].imshow(rollout_image.T, cmap=cmap_name, alpha=rollout_alpha)
+                        axes_roll[i].axis('off')
+                        # axes_roll[i].title(f'#{sample_count}, model {model}, , roll depth {i}')
+            sample_count += 1
+
+    if plot_format == 'grid':
+        plt.show()

@@ -32,3 +32,13 @@ def torch_cdf_loss(tensor_a,tensor_b,p=1):
 def torch_validate_distibution(tensor_a,tensor_b):
     if tensor_a.size() != tensor_b.size():
         raise ValueError("Input weight tensors must be of the same size")
+
+
+def any_image_to_tensor(image, device):
+    if type(image) == list or type(image) == tuple:
+        image = [[x.to(device) for x in y] for y in image]
+    elif type(image) == dict:
+        image = {k: [x.to(device) for x in v] for k, v in image.items()}
+    else:
+        image = image.to(device)
+    return image

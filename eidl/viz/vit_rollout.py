@@ -6,6 +6,8 @@ from eidl.Models.ExpertAttentionViT import Attention as ExpertAttentionViTAttent
 
 from timm.models.vision_transformer import VisionTransformer
 
+from eidl.utils.torch_utils import any_image_to_tensor
+
 
 def rollout(depth, grid_size, attentions, discard_ratio, head_fusion):
     result = torch.eye(attentions[0].size(-1))
@@ -71,17 +73,19 @@ class VITAttentionRollout:
             attention_output = output
         self.attentions.append(attention_output.cpu())
 
-    def __call__(self, depth, input_tensor, fix_sequence=None):
+    def __call__(self, depth, in_data, fix_sequence=None):
         if depth > self.attention_layer_count:
             raise ValueError(f"Given depth ({depth}) is greater than the number of attenion layers in the model ({self.attention_layer_count})")
         self.attentions = []
 
+        in_data = any_image_to_tensor(in_data, self.device)
+
         if isinstance(self.model, VisionTransformer):
-            output = self.model(input_tensor)
+            output = self.model(in_data)
         elif fix_sequence is not None:
-            output = self.model(input_tensor.to(self.device), fix_sequence.to(self.device))
+            output = self.model(in_data, fix_sequence.to(self.device))
         else:
-            output = self.model(input_tensor.to(self.device))
+            output = self.model(in_data)
         # with torch.no_grad():
         #     if isinstance(self.model, ViT_LSTM):
         #         x = self.model.to_patch_embedding(input_tensor.to(self.device))

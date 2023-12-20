@@ -170,3 +170,7 @@ def get_heatmap(seq, grid_size, normalize=True):
         heatmap = heatmap / heatmap.sum()
         assert abs(heatmap.sum() - 1) < 0.01, ValueError("no fixations sequence")
     return heatmap
+
+
+def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions, original_image_size):
+    print("remapping subimage attention rolls")

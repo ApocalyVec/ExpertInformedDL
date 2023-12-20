@@ -66,6 +66,7 @@ model_names = 'base_subimage',
 ################################################################
 image_size = 1024, 512
 patch_size = 32, 32
+gaussian_smear_sigma = 0.5
 
 # end of user parameters #############################################################################
 if __name__ == '__main__':
@@ -89,7 +90,7 @@ if __name__ == '__main__':
     print("Creating data set")
     folds, test_dataset, image_stats = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs,
                                                                                 cropped_image_data_path=cropped_image_data_path,
-                                                                                patch_size=patch_size)
+                                                                                patch_size=patch_size, gaussian_smear_sigma=gaussian_smear_sigma)
     pickle.dump(folds, open(os.path.join(results_dir, 'folds.p'), 'wb'))
     pickle.dump(test_dataset, open(os.path.join(results_dir, 'test_dataset.p'), 'wb'))
     pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))

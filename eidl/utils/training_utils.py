@@ -10,7 +10,7 @@ from tqdm import tqdm
 from torch import nn, autograd
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
-from eidl.utils.torch_utils import torch_wasserstein_loss
+from eidl.utils.torch_utils import torch_wasserstein_loss, any_image_to_tensor
 from eidl.viz.bad_gradient import is_bad_grad
 
 def get_class_weight(labels, n_classes, smoothing_factor=0.1):
@@ -211,14 +211,9 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
         pbar.update(1)
 
         # prepare the input data ##############################################################
-        image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_= batch
+        image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_ = batch
         fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
-        if type(image) == list or type(image) == tuple:
-            image = [[x.to(device) for x in y] for y in image]
-        elif type(image) == dict:
-            image = {k: [x.to(device) for x in v] for k, v in image.items()}
-        else:
-            image = image.to(device)
+        image = any_image_to_tensor(image, device)
 
         # check the aoi needs to be flattened
         if len(aoi_heatmap.shape) == 3:  # batch, height, width

@@ -61,7 +61,7 @@ class OCTDatasetV3(Dataset):
                     unique_name_trial_samples.append(s)
                     unique_names.append(s['name'])
             self.trial_samples = unique_name_trial_samples
-
+        self.has_subimages = 'sub_images' in self.trial_samples[0].keys()
 
     def create_aoi(self, grid_size, use_subimages=False):
         """
@@ -154,11 +154,13 @@ def collate_fn(batch):
         subimages = []
         subimage_masks = []
         n_subimages = len(batch[0]['sub_images'])
+        subimage_positions = []
         for i in range(n_subimages):
             subimages.append(torch.stack([torch.FloatTensor(item['sub_images'][i]['image']) for item in batch], dim=0))
             subimage_masks.append(torch.stack([torch.BoolTensor(item['sub_images'][i]['mask']) for item in batch], dim=0))
+            subimage_positions.append([item['sub_images'][i]['position'] for item in batch])
 
-        return {'subimages': subimages, 'masks': subimage_masks}, label, label_encoded, fixation_sequence, aoi_heatmap, original_image
+        return {'subimages': subimages, 'masks': subimage_masks}, label, label_encoded, fixation_sequence, aoi_heatmap, original_image, subimage_positions
     else:
         return img, label, label_encoded, fixation_sequence, aoi_heatmap, original_image
 
