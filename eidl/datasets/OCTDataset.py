@@ -105,15 +105,17 @@ class OCTDatasetV3(Dataset):
                         s_image_fix_seq_normed = np.zeros_like(s_image_fix_sequence)
                         s_image_fix_seq_normed[:, 0] = (s_image_fix_sequence[:, 0] - percentage_position[0][0]) / (percentage_position[2][0] - percentage_position[0][0])
                         s_image_fix_seq_normed[:, 1] = (s_image_fix_sequence[:, 1] - percentage_position[0][1]) / (percentage_position[2][1] - percentage_position[0][1])
-                        aoi_heatmap = get_heatmap(s_image_fix_seq_normed, grid_size=grid, normalize=False)
+                        aoi_heatmap_subimage = get_heatmap(s_image_fix_seq_normed, grid_size=grid, normalize=False)
                     else:
-                        aoi_heatmap = np.zeros(grid)
+                        aoi_heatmap_subimage = np.zeros(grid)
                     # plt.imshow(aoi_heatmap)
                     # plt.show()
-                    aoi_from_fixation.append(aoi_heatmap.reshape(-1))
+                    aoi_from_fixation.append(aoi_heatmap_subimage.reshape(-1))
                 aoi_from_fixation = np.concatenate(aoi_from_fixation)
-                # normalize
-                aoi_from_fixation = aoi_from_fixation / aoi_from_fixation.sum()
+                if aoi_from_fixation.sum() > 0:
+                    aoi_from_fixation = aoi_from_fixation / aoi_from_fixation.sum()  # normalize globally
+                if np.isnan(aoi_from_fixation).any():
+                    raise ValueError(f"aoi heatmap contains nan at index {i}")
             else:
                 aoi_from_fixation = get_heatmap(fixation_sequence, grid_size=grid_size)
             self.trial_samples[i]['aoi'] = aoi_from_fixation

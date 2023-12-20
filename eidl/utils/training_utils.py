@@ -1,3 +1,4 @@
+import contextlib
 import math
 import os.path
 import pickle
@@ -138,85 +139,97 @@ def train(model, optimizer: torch.optim.Optimizer, train_data_loader, val_data_l
         pickle.dump(training_histories, open(os.path.join(save_dir, 'training_histories.pickle'), 'wb'))
     return training_histories
 
-def run_validation(model: nn.Module, val_loader, device, dist=None, alpha=None, model_config_string='', criterion=nn.CrossEntropyLoss):
-        model.eval()
-        total_samples = 0
-        total_loss = 0.0
-        total_correct = 0
+# def run_validation(model: nn.Module, val_loader, device, dist=None, alpha=None, model_config_string='', criterion=nn.CrossEntropyLoss):
+#         model.eval()
+#         total_samples = 0
+#         total_loss = 0.0
+#         total_correct = 0
+#
+#         pbar = tqdm(total=math.ceil(len(val_loader.dataset) / val_loader.batch_size),
+#                     desc=f'Validating {model_config_string}')
+#         pbar.update(mini_batch_i := 0)
+#
+#         for batch in val_loader:
+#             mini_batch_i += 1
+#             pbar.update(1)
+#
+#             image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_ = batch
+#             fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
+#             output, attention = model(image.to(device), fixation_sequence_torch.to(device))
+#             # pred = F.softmax(output, dim=1)
+#
+#             aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
+#             attention = torch.sum(attention, dim=1)  # summation across the heads
+#             attention /= torch.sum(attention, dim=1, keepdim=True)
+#
+#             y_tensor = label_onehot_encoded.to(device)
+#             class_weight = get_class_weight(y_tensor, n_classes=2)
+#             classification_loss = criterion(weight=class_weight)(output, y_tensor)
+#
+#             if dist is not None and alpha is not None:
+#                 if dist == 'cross-entropy':
+#                     attention_loss = alpha * F.cross_entropy(attention, aoi_heatmap.to(device))
+#                 elif dist == 'Wasserstein':
+#                     attention_loss = alpha * torch_wasserstein_loss(attention, aoi_heatmap.to(device))
+#                 else:
+#                     raise NotImplementedError(f" Loss type {dist} is not implemented")
+#                 loss = classification_loss + attention_loss
+#             else:
+#                 loss = classification_loss
+#
+#             _, predictions = torch.max(F.softmax(output, dim=1), 1)
+#             total_samples += (predictions.size(0))
+#             total_loss += loss.item() * len(batch[0])
+#             total_correct += torch.sum(predictions == label_encoded.to(device)).item()
+#
+#         epoch_loss = total_loss / total_samples
+#         epoch_acc = (total_correct / total_samples)
+#         pbar.close()
+#
+#         return epoch_loss, epoch_acc
 
-        pbar = tqdm(total=math.ceil(len(val_loader.dataset) / val_loader.batch_size),
-                    desc=f'Validating {model_config_string}')
-        pbar.update(mini_batch_i := 0)
-
-        for batch in val_loader:
-            mini_batch_i += 1
-            pbar.update(1)
-
-            image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_ = batch
-            fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
-            output, attention = model(image.to(device), fixation_sequence_torch.to(device))
-            # pred = F.softmax(output, dim=1)
-
-            aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
-            attention = torch.sum(attention, dim=1)  # summation across the heads
-            attention /= torch.sum(attention, dim=1, keepdim=True)
-
-            y_tensor = label_onehot_encoded.to(device)
-            class_weight = get_class_weight(y_tensor, n_classes=2)
-            classification_loss = criterion(weight=class_weight)(output, y_tensor)
-
-            if dist is not None and alpha is not None:
-                if dist == 'cross-entropy':
-                    attention_loss = alpha * F.cross_entropy(attention, aoi_heatmap.to(device))
-                elif dist == 'Wasserstein':
-                    attention_loss = alpha * torch_wasserstein_loss(attention, aoi_heatmap.to(device))
-                else:
-                    raise NotImplementedError(f" Loss type {dist} is not implemented")
-                loss = classification_loss + attention_loss
-            else:
-                loss = classification_loss
-
-            _, predictions = torch.max(F.softmax(output, dim=1), 1)
-            total_samples += (predictions.size(0))
-            total_loss += loss.item() * len(batch[0])
-            total_correct += torch.sum(predictions == label_encoded.to(device)).item()
-
-        epoch_loss = total_loss / total_samples
-        epoch_acc = (total_correct / total_samples)
-        pbar.close()
-
-        return epoch_loss, epoch_acc
-
-def train_oct_model(model, model_config_string, train_loader, valid_loader, optimizer, results_dir,
-                    criterion=nn.CrossEntropyLoss, num_epochs=100, alpha=0.01, l2_weight=None, dist='cross-entropy', *args, **kwargs):
-    def run_train(model: nn.Module, train_loader, optimizer, device, class_weights, *args, **kwargs):
+def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, class_weights, model_config_string, criterion,
+                      dist, alpha, l2_weight, *args, **kwargs):
+    if mode == 'train':
         model.train()
-        total_samples = 0
-        total_loss = 0.0
-        total_correct = 0
-        mini_batch_i = 0
-        pbar = tqdm(total=math.ceil(len(train_loader.dataset) / train_loader.batch_size), desc=f'Training {model_config_string}')
-        pbar.update(mini_batch_i)
+    elif mode == 'val':
+        model.eval()
+    else:
+        raise ValueError('mode must be train or eval')
+    context_manager = torch.no_grad() if mode == 'val' else contextlib.nullcontext()
 
-        grad_norms = []  # debug
-        for batch in train_loader:
-            mini_batch_i += 1
-            pbar.update(1)
+    total_samples = 0
+    total_loss = 0.0
+    total_correct = 0
+    mini_batch_i = 0
+    pbar = tqdm(total=math.ceil(len(train_loader.dataset) / train_loader.batch_size), desc=f'Training {model_config_string}')
+    pbar.update(mini_batch_i)
 
-            image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_= batch
-            fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
-            if type(image) == list or type(image) == tuple:
-                image = [[x.to(device) for x in y] for y in image]
-            elif type(image) == dict:
-                image = {k: [x.to(device) for x in v] for k, v in image.items()}
-            else:
-                image = image.to(device)
+    grad_norms = []  # debug
+    for batch in train_loader:
+        mini_batch_i += 1
+        pbar.update(1)
+
+        # prepare the input data ##############################################################
+        image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_= batch
+        fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
+        if type(image) == list or type(image) == tuple:
+            image = [[x.to(device) for x in y] for y in image]
+        elif type(image) == dict:
+            image = {k: [x.to(device) for x in v] for k, v in image.items()}
+        else:
+            image = image.to(device)
+
+        # check the aoi needs to be flattened
+        if len(aoi_heatmap.shape) == 3:  # batch, height, width
+            aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
+
+        # the forward pass ###################################################################
+        if mode == 'train':
+            optimizer.zero_grad()
+        with context_manager:
             output, attention = model(image, fixation_sequence=fixation_sequence_torch.to(device))
             # pred = F.softmax(output, dim=1)
-
-            # check the aoi needs to be flattened
-            if len(aoi_heatmap.shape) == 3:  # batch, height, width
-                aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
 
             attention = torch.sum(attention, dim=1)  # summation across the heads
             attention /= torch.sum(attention, dim=1, keepdim=True)  # normalize the attention output
@@ -239,20 +252,13 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
             else:
                 loss = classification_loss + attention_loss
 
-            optimizer.zero_grad()
-
+        # update the weights #################################################################
+        if mode == 'train':
             with autograd.detect_anomaly():
-                # get_dot = register_hooks(loss, name=f"epoch-{epoch}_minibatch-{mini_batch_i}")
                 try:
                     loss.backward()
                 except Exception as e:
                     print(f"Bad gradient encountered: {e}")
-                finally:
-                    pass
-                    # dot = get_dot()
-                    # dot.format = 'svg'
-                    # dot.render(directory='bad gradients', view=True)
-
             grad_norms.append([torch.mean(param.grad.norm()).item() for _, param in model.named_parameters() if param.grad is not None])
 
             # nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0, norm_type=2)
@@ -264,18 +270,21 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
                     bad_grads[name] = param.grad
 
             optimizer.step()
+        ######################################################################################
 
-            _, predictions = torch.max(F.softmax(output, dim=1), 1)
-            total_samples += (predictions.size(0))
-            total_loss += loss.item() * len(batch[0])
-            total_correct += torch.sum(predictions == label_encoded.to(device)).item()
-            pbar.set_description('Training [{}]: loss:{:.8f}, with classification loss {:.8f}, with attention loss {:.8f}'.format(mini_batch_i, loss.item(), classification_loss.item(), attention_loss.item()))
+        _, predictions = torch.max(F.softmax(output, dim=1), 1)
+        total_samples += (predictions.size(0))
+        total_loss += loss.item() * len(batch[0])
+        total_correct += torch.sum(predictions == label_encoded.to(device)).item()
+        pbar.set_description('Training [{}]: loss:{:.8f}, with classification loss {:.8f}, with attention loss {:.8f}'.format(mini_batch_i, loss.item(), classification_loss.item(), attention_loss.item()))
 
-        epoch_loss = total_loss / total_samples
-        epoch_acc = (total_correct / total_samples)
-        pbar.close()
-        return epoch_loss, epoch_acc
+    epoch_loss = total_loss / total_samples
+    epoch_acc = (total_correct / total_samples)
+    pbar.close()
+    return epoch_loss, epoch_acc
 
+def train_oct_model(model, model_config_string, train_loader, valid_loader, results_dir,
+                    criterion=nn.CrossEntropyLoss, num_epochs=100, alpha=0.01, l2_weight=None, dist='cross-entropy', *args, **kwargs):
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -289,10 +298,12 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
     for epoch in range(num_epochs):
         print('epoch:{:d} / {:d}'.format(epoch, num_epochs))
         print('*' * 100)
-        train_loss, train_acc = run_train(model, train_loader, optimizer, device=device,*args, **kwargs)
+        train_loss, train_acc = run_one_epoch_oct('train', model, train_loader, device=device, model_config_string=model_config_string, criterion=criterion,
+                                                dist=dist, alpha=alpha, l2_weight=l2_weight, *args, **kwargs)
         train_loss_list.append(train_loss)
         train_acc_list.append(train_acc)
-        valid_loss, valid_acc = run_validation(model, valid_loader, dist=dist, device=device, model_config_string=model_config_string, criterion=criterion, alpha=alpha)
+        valid_loss, valid_acc = run_one_epoch_oct('val', model, valid_loader, device=device, model_config_string=model_config_string, criterion=criterion,
+                                                  dist=dist, alpha=alpha, l2_weight=l2_weight, *args, **kwargs)
         valid_loss_list.append(valid_loss)
         valid_acc_list.append(valid_acc)
         print("training loss: {:.4f}, training acc: {:.4f}; validation loss {:.4f}, validation acc: {:.4f}".format(train_loss, train_acc, valid_loss, valid_acc))
