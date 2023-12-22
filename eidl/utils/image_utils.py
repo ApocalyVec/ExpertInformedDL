@@ -217,3 +217,12 @@ def remap_subimage_aoi(subimage_patch_aoi, subimage_masks, subimages, subimage_p
         sub_image_aois.append(s_aoi)
         subimage_patch_counter += s_patch_size
     return aoi_recovered, sub_image_aois
+
+def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions, original_image_size):
+    print("remapping subimage attention rolls")
+
+
+class SubimageLoader:
+
+    def __init__(self):
+        self.mean = None

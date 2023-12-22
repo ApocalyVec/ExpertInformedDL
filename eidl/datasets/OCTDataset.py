@@ -212,24 +212,17 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     -------
     """
     # check if cropped image data exists
-    if cropped_image_data_path is not None:
-        cropped_image_data = pickle.load(open(cropped_image_data_path, 'rb'))
-        # turn into a dict keyed by image name
-        # cropped_image_data = {k: v for k, v in cropped_image_data.items() for k, v in v.items()}
-    else:
-        cropped_image_data = None
-
-    image_root = os.path.join(data_root, 'reports_cleaned')
-    assert os.path.exists(image_root), f"image directory {image_root} does not exist, please download the data from drive"
-
-    pvalovia_dir = os.path.join(data_root, 'pvalovia-data')
-    assert os.path.exists(pvalovia_dir), f"pvalovia directory {pvalovia_dir} does not exist, please download the data from github"
-
-    image_dirs = os.listdir(image_root)
-    name_label_images_dict = {}
-    # get the images and labels from the image directories
-
     if cropped_image_data_path is None:
+        # get the images and labels from the image directories
+        image_root = os.path.join(data_root, 'reports_cleaned')
+        assert os.path.exists(
+            image_root), f"image directory {image_root} does not exist, please download the data from drive"
+
+        pvalovia_dir = os.path.join(data_root, 'pvalovia-data')
+        assert os.path.exists(
+            pvalovia_dir), f"pvalovia directory {pvalovia_dir} does not exist, please download the data from github"
+        image_dirs = os.listdir(image_root)
+        name_label_images_dict = {}
         for i, image_dir in enumerate(image_dirs):
             print(f"working on image directory {image_dir}, {i+1}/{len(image_dirs)}")
             label = image_dir[0]  # get the image label
@@ -242,6 +235,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
                                       **{image_name: {'name': image_name, 'image': image, 'label': label}
                                          for image_name, image in zip(image_names, images)}}
     else:
+        cropped_image_data = pickle.load(open(cropped_image_data_path, 'rb'))
         load_image_args = [(image_name, image_size, image_info_dict['image']) for image_name, image_info_dict in cropped_image_data.items()]
         # change the key original_image to image
         with Pool(n_jobs) as p:
@@ -258,12 +252,10 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
             name_label_images_dict[k] = {**name_label_images_dict[k], **cropped_image_data[k]}
 
     # perform z-norm
-
     # compute white mask for each image
     for k, x in name_label_images_dict.items():
         name_label_images_dict[k]['white_mask'] = generate_image_binary_mask(x['image'], channel_first=False)
 
-    # TODO process the sub images
     # z-normalize the images
     # the z-normal should be computed from the 177 images, not from the 455 trials
     image_data = np.array([x['image'] for k, x in name_label_images_dict.items()])
