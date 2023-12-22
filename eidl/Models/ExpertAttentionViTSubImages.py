@@ -33,6 +33,7 @@ class ViT_LSTM_subimage(nn.Module):
         super().__init__()
         self.ViT = ViT_LSTM(*args, **kwargs)
         self.depth = self.ViT.depth
+        self.patch_height, self.patch_width = self.ViT.patch_height, self.ViT.patch_width
 
     def forward(self, img, collapse_attention_matrix=True, *args, **kwargs):
         '''

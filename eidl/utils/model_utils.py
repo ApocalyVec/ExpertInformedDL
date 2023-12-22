@@ -2,7 +2,6 @@ import os
 import pickle
 import tempfile
 import urllib
-from typing import Iterable
 
 import timm
 import torch
@@ -11,6 +10,7 @@ from eidl.Models.ExpertAttentionViT import ViT_LSTM
 from eidl.Models.ExpertAttentionViTSubImages import ViT_LSTM_subimage
 from eidl.Models.ExtensionModels import ExpertTimmVisionTransformer
 from eidl.utils.image_utils import load_oct_image
+from eidl.utils.iter_utils import reverse_tuple
 
 
 def get_vit_model(model_name, image_size, depth, device, *args, **kwargs):
@@ -33,11 +33,6 @@ def get_vit_model(model_name, image_size, depth, device, *args, **kwargs):
         raise ValueError(f"model name {model_name} is not supported")
     return model, model.get_grid_size()
 
-def reverse_tuple(t):
-    if len(t) == 0:
-        return t
-    else:
-        return(t[-1],)+reverse_tuple(t[:-1])
 
 def swap_tuple(t, i, j):
     t = list(t)

@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 
 from eidl.utils.image_utils import generate_image_binary_mask, resize_image, load_oct_image, pad_subimages, \
     z_norm_subimages, get_heatmap
-from eidl.utils.model_utils import reverse_tuple
+from eidl.utils.iter_utils import reverse_tuple
 
 
 def get_label(df_dir):
@@ -61,7 +61,9 @@ class OCTDatasetV3(Dataset):
                     unique_name_trial_samples.append(s)
                     unique_names.append(s['name'])
             self.trial_samples = unique_name_trial_samples
-        self.has_subimages = 'sub_images' in self.trial_samples[0].keys()
+
+    def has_subimages(self):
+        return 'sub_images' in self.trial_samples[0].keys()
 
     def create_aoi(self, grid_size, use_subimages=False):
         """
@@ -80,7 +82,7 @@ class OCTDatasetV3(Dataset):
             if fixation_sequence is None:
                 raise ValueError(f"image at index {i} does not have corresponding fixation seq.")
 
-            if use_subimages:
+            if self.has_subimages():
                 image_size = self.trial_samples[i]['original_image'].shape[:-1]
                 aoi_from_fixation = []
                 for s_image in self.trial_samples[i]['sub_images']:
@@ -148,7 +150,8 @@ def collate_fn(batch):
     # else:
     fixation_sequence = [torch.FloatTensor(item['fix_seq']) for item in batch]
     aoi_heatmap = torch.stack([torch.FloatTensor(item['aoi']) for item in batch], dim=0)
-    original_image = torch.stack([torch.FloatTensor(item['image']) for item in batch], dim=0)
+    image_resized = torch.stack([torch.FloatTensor(item['image']) for item in batch], dim=0)
+    image_original = torch.stack([torch.FloatTensor(item['original_image']) for item in batch], dim=0)
 
     if 'sub_images' in batch[0].keys():
         subimages = []
@@ -160,9 +163,9 @@ def collate_fn(batch):
             subimage_masks.append(torch.stack([torch.BoolTensor(item['sub_images'][i]['mask']) for item in batch], dim=0))
             subimage_positions.append([item['sub_images'][i]['position'] for item in batch])
 
-        return {'subimages': subimages, 'masks': subimage_masks}, label, label_encoded, fixation_sequence, aoi_heatmap, original_image, subimage_positions
+        return {'subimages': subimages, 'masks': subimage_masks}, label, label_encoded, fixation_sequence, aoi_heatmap, image_resized, image_original, subimage_positions
     else:
-        return img, label, label_encoded, fixation_sequence, aoi_heatmap, original_image
+        return img, label, label_encoded, fixation_sequence, aoi_heatmap, image_resized, image_original
 
 def minmax_norm(x):
     x = x.copy()
@@ -312,7 +315,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
                  'name': s_image_name})
 
     print(f"Number of trials without fixation sequence {no_fixation_count} with {len(trial_samples)} valid trials")
-    plt.hist(image_name_counts.values())
+    plt.hist(image_name_counts.values(), bins=np.arange(max(image_name_counts.values())))
     plt.xlabel("Number of trials")
     plt.ylabel("Number of images")
     plt.title("Number of trials per image")
@@ -332,7 +335,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     plt.bar(np.arange(len(unique_labels)), [np.sum(trial_labels==l) for l in unique_labels])
     plt.xlabel("Number of images")
     plt.xticks(np.arange(len(unique_labels)), unique_labels)
-    plt.title("Number of images per label")
+    plt.title("Number of trials per label")
     plt.show()
 
     # change suspect label to certain label

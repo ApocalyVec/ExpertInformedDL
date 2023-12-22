@@ -39,9 +39,8 @@ def rollout(depth, grid_size, attentions, discard_ratio, head_fusion):
 
     # Look at the total attention between the class token,
     # and the image patches
-    mask = result[0, 0, 1:]
+    mask = result[0, 0, 1:].numpy()
     # In case of 224x224 image, this brings us from 196 to 14
-    mask = mask.reshape(grid_size).numpy()
     mask = mask / np.max(mask)
     return mask
 
@@ -73,19 +72,18 @@ class VITAttentionRollout:
             attention_output = output
         self.attentions.append(attention_output.cpu())
 
-    def __call__(self, depth, in_data, fix_sequence=None):
+    def __call__(self, depth, in_data, *args, **kwargs):
         if depth > self.attention_layer_count:
             raise ValueError(f"Given depth ({depth}) is greater than the number of attenion layers in the model ({self.attention_layer_count})")
         self.attentions = []
 
-        in_data = any_image_to_tensor(in_data, self.device)
-
-        if isinstance(self.model, VisionTransformer):
-            output = self.model(in_data)
-        elif fix_sequence is not None:
-            output = self.model(in_data, fix_sequence.to(self.device))
-        else:
-            output = self.model(in_data)
+        output = self.model(in_data, *args, **kwargs)
+        # if isinstance(self.model, VisionTransformer):
+        #     output = self.model(in_data)
+        # elif fix_sequence is not None:
+        #
+        # else:
+        #     output = self.model(in_data)
         # with torch.no_grad():
         #     if isinstance(self.model, ViT_LSTM):
         #         x = self.model.to_patch_embedding(input_tensor.to(self.device))

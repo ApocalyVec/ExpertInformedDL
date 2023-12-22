@@ -10,11 +10,14 @@ import torch
 from matplotlib import pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from torch.utils.data import DataLoader
+import torch.nn.utils.rnn as rnn_utils
+from PIL import Image
 
 from eidl.datasets.OCTDataset import collate_fn
-from eidl.utils.image_utils import remap_subimage_attention_rolls
+from eidl.utils.image_utils import remap_subimage_aoi, process_aoi
 from eidl.utils.iter_utils import chunker
 from eidl.utils.model_utils import parse_model_parameter
+from eidl.utils.torch_utils import any_image_to_tensor
 from eidl.viz.vit_rollout import VITAttentionRollout
 
 from eidl.viz.viz_utils import plt2arr, plot_train_history
@@ -33,7 +36,7 @@ def register_cmap_with_alpha(cmap_name):
     plt.register_cmap(cmap=map_object)
     return cmap_rtn
 
-def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, viz_val_acc=True, plot_format='individual', num_plot=14, rollout_alpha=0.75):
+def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, viz_val_acc=True, plot_format='individual', num_plot=14, rollout_transparency=0.75):
     '''
 
     Parameters
@@ -58,7 +61,7 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
 
-
+    image_stats = pickle.load(open(os.path.join(results_dir, 'image_stats.p'), 'rb'))
     # load the test dataset ############################################################################################
     test_dataset = pickle.load(open(os.path.join(results_dir, 'test_dataset.p'), 'rb'))
 
@@ -186,6 +189,8 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
         best_model = best_model_results['model']
         model_depth = best_model.depth
 
+    best_model.eval()
+    patch_size = best_model.ViT.patch_height, best_model.ViT.patch_width  # TODO change this to remove ViT_LSTM
     # visualize the training history of the best model ##################################################################
     plot_train_history(best_model_results, note=f"{best_model_config_string}")
 
@@ -194,11 +199,10 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn)  # one image at a time
 
     with torch.no_grad():
-        best_model.eval()
-        test_dataset.create_aoi(best_model.grid_size)
+        test_dataset.create_aoi(best_model.get_grid_size())
         # epoch_loss, epoch_acc = run_validation(best_model, test_loader, device)
         # print(f"Test acc: {epoch_acc}")
-        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.5)
+        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.1)
         sample_count = 0
 
         if plot_format == 'grid':
@@ -208,68 +212,125 @@ def viz_oct_results(results_dir,  batch_size, n_jobs=1, acc_min=.3, acc_max=1, v
             fig.tight_layout()
 
         for batch in test_loader:
-            image, label, label_encoded, fix_sequence, aoi_heatmap, original_image, *rest = batch
+            print(f'Processing sample {sample_count} in test set')
+            image, label, label_encoded, fix_sequence, aoi_heatmap, image_resized, image_original, *rest = batch
             if has_subimage:
-                subimage_positions = rest[0]
+                # take out the batches
+                subimage_positions = [x[0] for x in rest[0]]
+                subimage_masks = [x[0].detach().cpu().numpy() for x in image['masks']]  # the masks for the subimages in a a single image
+                subimages = [x[0].detach().cpu().numpy() for x in image['subimages']]  # the subimages in a single image
+            else:
+                subimage_masks = None
+                subimage_positions = None
 
             rolls = []
+            fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fix_sequence, batch_first=True))
+
             for roll_depth in range(best_model.depth):
-                rolls.append(vit_rollout(depth=roll_depth, input_tensor=image.unsqueeze(0), fix_sequence=fix_sequence))
+                image = any_image_to_tensor(image, device)
+                rolls.append(vit_rollout(depth=roll_depth, in_data=image, fixation_sequence=fixation_sequence_torch))
 
-            image_original = np.array(image_original.numpy(), dtype=np.uint8)
-
+            image_original = np.array(image_original[0].numpy(), dtype=np.uint8)
+            image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
+            image_original_size = image_original.shape[:2]
             if plot_format == 'individual':
                 fig_list = []
                 # plot the original image
                 fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                plt.imshow(image_original)  # plot the original image, bgr to rgb
                 plt.axis('off')
                 plt.title(f'#{sample_count}, original image')
-                plt.show()
-                fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_originalImage.png')
+                # plt.show()
+                Image.fromarray(image_original).save(f'figures/Sample {sample_count} in test set, original image.png')
                 fig_list.append(plt2arr(fig))
                 # plot the original image with expert AOI heatmap
                 fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                _aoi_heatmap = cv2.resize(aoi_heatmap.numpy(), dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
-                plt.imshow(_aoi_heatmap.T, cmap=cmap_name, alpha=rollout_alpha)
+                plt.imshow(image_original)  # plot the original image
+
+                _aoi_heatmap, *_ = process_aoi(aoi_heatmap[0].numpy(), image_original_size, has_subimage, grid_size=best_model.get_grid_size(),
+                                           subimage_masks=subimage_masks, subimages=subimages, subimage_positions=subimage_positions, patch_size=patch_size)
+                plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
                 plt.axis('off')
                 plt.title(f'#{sample_count}, expert AOI')
-                plt.show()
-                fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}__expertAOI.png')
+                # plt.show()
+                fig.savefig(f'figures/Sample {sample_count} in test set, expert attention.png')
 
                 for i, roll in enumerate(rolls):
-                    if has_subimage:
-                        rollout_image = remap_subimage_attention_rolls(rolls, image['masks'], subimage_positions, image_original.shape[1:])
-                    else:
-                        rollout_image = cv2.resize(roll, dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4).T
+                    rollout_image, subimage_roll = process_aoi(rolls[0], image_original_size, has_subimage,
+                                               grid_size=best_model.get_grid_size(),
+                                               subimage_masks=subimage_masks, subimages=subimages, subimage_positions=subimage_positions, patch_size=patch_size)
+                    fig = plt.figure(figsize=(30, 20), constrained_layout=True)
 
-                    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                    plt.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                    plt.imshow(rollout_image, cmap=cmap_name, alpha=rollout_alpha)
+                    plt.subplot(2, 2, 1)
+                    plt.imshow(image_original)  # plot the original image
+                    plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
                     plt.axis('off')
-                    plt.title(f'#{sample_count}, model {model}, , roll depth {i}')
-                    plt.show()
+                    plt.title("Expert Attention Overlay")
+
+                    plt.subplot(2, 2, 3)
+                    plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
+                    plt.axis('off')
+                    plt.title("Expert Attention")
+
+                    plt.subplot(2, 2, 2)
+                    plt.imshow(image_original)  # plot the original image
+                    plt.imshow(rollout_image, cmap=cmap_name, alpha=rollout_transparency)
+                    plt.axis('off')
+                    plt.title("Model Attention Overlay")
+
+                    plt.subplot(2, 2, 4)
+                    plt.imshow(rollout_image, cmap=cmap_name, alpha=rollout_transparency)
+                    plt.axis('off')
+                    plt.title("Model Attention")
+
+                    plt.suptitle(title_text := f'Sample {sample_count} in test set, model {model}, roll depth {i}')
+                    # plt.show()
+
+                    fig.savefig(f'figures/{title_text}.png')
+
+                    for s_i, (s_roll, s_image, s_pos) in enumerate(zip(subimage_roll, subimages, subimage_positions)):
+                        # unznorm the image
+                        s_image_unznormed = np.transpose(s_image, (1, 2, 0)) * image_stats['subimage_std'] + image_stats['subimage_mean']
+                        s_image_unznormed = s_image_unznormed.astype(np.uint8)
+                        s_image_unznormed = cv2.cvtColor(s_image_unznormed, cv2.COLOR_BGR2RGB)
+                        s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]
+                        s_image_unznormed = s_image_unznormed[:s_image_size[0], :s_image_size[1]]
+
+                        # plot the aoi and subimage side by side, using subplot
+                        s_fig = plt.figure(figsize=(15, 10), constrained_layout=True)
+                        plt.subplot(1, 2, 1)
+
+                        plt.imshow(s_image_unznormed)
+                        plt.axis('off')
+
+                        plt.subplot(1, 2, 2)
+                        plt.imshow(s_roll, cmap=cmap_name, alpha=rollout_transparency)
+                        plt.axis('off')
+
+                        plt.suptitle(title_text := f'Sample {sample_count} in test set, model {model}, roll depth {i}, subimage {s_i}')
+                        # plt.show()
+                        s_fig.savefig(f'figures/{title_text}.png')
+
                     # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
                     fig_list.append(plt2arr(fig))
-                imageio.mimsave(f'gifs/model-{model}_valImageIndex-{sample_count}.gif', fig_list, fps=2)  # TODO expose save dir
+                # imageio.mimsave(f'gifs/model-{model}_valImageIndex-{sample_count}.gif', fig_list, fps=2)  # TODO expose save dir
             elif plot_format == 'grid' and sample_count < num_plot:
                     axis_original_image, axis_aoi_heatmap, axes_roll = axs[0, sample_count], axs[1, sample_count], axs[2:, sample_count]
-                    axis_original_image.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                    axis_original_image.imshow(image_original)  # plot the original image
                     axis_original_image.axis('off')
                     # axis_original_image.title(f'#{sample_count}, original image')
 
                     # plot the original image with expert AOI heatmap
-                    axis_aoi_heatmap.imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
+                    axis_aoi_heatmap.imshow(image_original)  # plot the original image
                     _aoi_heatmap = cv2.resize(aoi_heatmap.numpy(), dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
-                    axis_aoi_heatmap.imshow(_aoi_heatmap.T, cmap=cmap_name, alpha=rollout_alpha)
+                    axis_aoi_heatmap.imshow(_aoi_heatmap.T, cmap=cmap_name, alpha=rollout_transparency)
                     axis_aoi_heatmap.axis('off')
                     # axis_aoi_heatmap.title(f'#{sample_count}, expert AOI')
 
                     for i, roll in enumerate(rolls):
                         rollout_image = cv2.resize(roll, dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
-                        axes_roll[i].imshow(np.moveaxis(image_original, 0, 2))  # plot the original image
-                        axes_roll[i].imshow(rollout_image.T, cmap=cmap_name, alpha=rollout_alpha)
+                        axes_roll[i].imshow(np.moveaxis(image_resized, 0, 2))  # plot the original image
+                        axes_roll[i].imshow(rollout_image.T, cmap=cmap_name, alpha=rollout_transparency)
                         axes_roll[i].axis('off')
                         # axes_roll[i].title(f'#{sample_count}, model {model}, , roll depth {i}')
             sample_count += 1

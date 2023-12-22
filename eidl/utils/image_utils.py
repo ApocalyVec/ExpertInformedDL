@@ -4,6 +4,9 @@ import numpy as np
 from PIL import Image, Image as im
 import matplotlib.pyplot as plt
 
+from eidl.utils.iter_utils import reverse_tuple
+
+
 def generate_image_binary_mask(image, channel_first=False):
     if channel_first:
         image = np.moveaxis(image, 0, -1)
@@ -77,7 +80,7 @@ def pad_image(image, max_n_patches, patch_size):
     return image_padded, patch_mask
 
 
-def pad_subimages(cropped_image_data, patch_size=(32, 32)):
+def pad_subimages(cropped_image_data, patch_size=(32, 32), *args, **kwargs):
     """
     sub image pad to max size
         'En-face_52.0micrometer_Slab_(Retina_View)':
@@ -172,5 +175,45 @@ def get_heatmap(seq, grid_size, normalize=True):
     return heatmap
 
 
-def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions, original_image_size):
-    print("remapping subimage attention rolls")
+def process_aoi(aoi_heatmap, image_size, has_subimage, grid_size, **kwargs):
+    if has_subimage:
+        return remap_subimage_aoi(aoi_heatmap, image_size=image_size, **kwargs)
+    else:
+        aoi_heatmap = aoi_heatmap.reshape(grid_size)
+        aoi_heatmap = cv2.resize(aoi_heatmap, dsize=image_size, interpolation=cv2.INTER_LINEAR)
+
+def remap_subimage_aoi(subimage_patch_aoi, subimage_masks, subimages, subimage_positions, image_size, patch_size):
+    """
+
+
+    Parameters
+    ----------
+    subimage_patch_aoi: ndarray, 1D array of size (n_patches,)
+    subimage_masks
+    subimage_positions
+    image_size
+
+    Returns
+    -------
+
+    """
+    aoi_recovered = np.zeros(image_size)
+    sub_image_aois = []
+    subimage_patch_counter = 0
+    for s_image, s_mask, s_pos in zip(subimages, subimage_masks, subimage_positions):  # s refers to a single subimage
+        s_patch_size = np.prod(s_mask.shape)
+        s_aoi = subimage_patch_aoi[subimage_patch_counter:(subimage_patch_counter + s_patch_size)].reshape(s_mask.shape)  # note this
+
+        s_image_size_cropped_or_padded = s_aoi.shape[0] * patch_size[0], s_aoi.shape[1] * patch_size[1]  # the aoi is padded
+        s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]
+
+        # s_aoi = cv2.resize(s_aoi, dsize=reverse_tuple(s_image_size), interpolation=cv2.INTER_LINEAR)
+        s_aoi = cv2.resize(s_aoi, dsize=reverse_tuple(s_image_size_cropped_or_padded), interpolation=cv2.INTER_LINEAR)
+
+        s_aoi = s_aoi[:s_image_size[0], :s_image_size[1]]  # if the image is padded, this also remove the attention from the padded area
+
+        aoi_recovered[s_pos[0][1]:min(s_pos[2][1], s_pos[0][1] + s_image_size_cropped_or_padded[0]),  # the min is dealing with the cropped case
+                      s_pos[0][0]:min(s_pos[2][0], s_pos[0][0] + s_image_size_cropped_or_padded[1])] += s_aoi
+        sub_image_aois.append(s_aoi)
+        subimage_patch_counter += s_patch_size
+    return aoi_recovered, sub_image_aois
