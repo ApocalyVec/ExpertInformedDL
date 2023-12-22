@@ -1,3 +1,5 @@
+from multiprocessing import Pool
+
 import PIL
 import cv2
 import numpy as np
@@ -80,7 +82,7 @@ def pad_image(image, max_n_patches, patch_size):
     return image_padded, patch_mask
 
 
-def pad_subimages(cropped_image_data, patch_size=(32, 32), *args, **kwargs):
+def preprocess_subimages(cropped_image_data, patch_size=(32, 32), *args, **kwargs):
     """
     sub image pad to max size
         'En-face_52.0micrometer_Slab_(Retina_View)':
@@ -225,4 +227,71 @@ def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions,
 class SubimageLoader:
 
     def __init__(self):
-        self.mean = None
+        self.subimage_mean = None
+        self.subimage_std = None
+
+
+    def load_image_data(self, image_data_dict, resize_to, n_jobs=1, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        image_data_dict: dict
+            image_name: str: image names are the keys of the dict
+                'image': np.array: the original image
+                'sub_images': dict
+                    'En-face_52.0micrometer_Slab_(Retina_View)': str
+                        'sub_image': np.array
+                        'position': list of four two-int tuples
+                    'Circumpapillary_RNFL':                             same as above
+                    'RNFL_Thickness_(Retina_View)':                     same as above
+                    'GCL_Thickness_(Retina_View)':                      same as above
+                    'RNFL_Probability_and_VF_Test_points(Field_View)':  same as above
+                    'GCL+_Probability_and_VF_Test_points':              same as above
+                'label': str: 'G', 'S', 'G_Suspects', 'S_Suspects'
+
+        Returns
+        -------
+        dict:
+            image_name: str: image names are the keys of the dict
+                label: str
+                original_image: ndarray
+                subimages: list of dict
+                    dict keys:
+                        image: ndarray
+                        mask: ndarray
+                        position list of four size-two tuples
+                        name: subimage name
+
+        """
+
+        # change the key name of the image data from the original cropped_image_data from image to original image
+        for k in image_data_dict.keys():
+            image_data_dict[k]['original_image'] = image_data_dict[k].pop('image')
+
+        # preprocess the subimages
+        image_data_dict = preprocess_subimages(image_data_dict, *args, **kwargs)
+
+        # process the subimages if there are any
+        print("z norming subimages")
+        image_data_dict, self.subimage_mean, self.subimage_std = z_norm_subimages(image_data_dict)
+
+        for k, x in image_data_dict.items():
+            for s_image_name, s_image_data in image_data_dict[k]['sub_images'].items():
+                image_data_dict[k]['sub_images'][s_image_name]['sub_image_cropped_padded_z_normed'] = s_image_data[
+                    'sub_image_cropped_padded_z_normed'].transpose((2, 0, 1))
+
+        # get rid of the extra fields
+        subimage_names = list(image_data_dict[list(image_data_dict.keys())[0]]['sub_images'].keys())
+        for image_name, image_data in image_data_dict.items():
+            subimages = image_data.pop('sub_images')
+            image_data['sub_images'] = []
+            for s_image_name in subimage_names:
+                image_data['sub_images'].append(
+                    {'image': subimages[s_image_name]['sub_image_cropped_padded_z_normed'],
+                     'mask': subimages[s_image_name]['patch_mask'],
+                     'position': subimages[s_image_name]['position'],
+                     'name': s_image_name})
+
+        return image_data_dict
+
