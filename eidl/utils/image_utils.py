@@ -174,3 +174,9 @@ def get_heatmap(seq, grid_size, normalize=True):
 
 def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions, original_image_size):
     print("remapping subimage attention rolls")
+
+
+class SubimageLoader:
+
+    def __init__(self):
+        self.mean = None
