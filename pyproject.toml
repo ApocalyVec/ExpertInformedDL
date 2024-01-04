@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "expert-informed-dl"
-version = "0.0.4.dev1"
+version = "0.0.4"
 authors = [
   { name="Ziheng 'Leo' Li", email="apocalyvec@gmail.com" },
 ]
@@ -25,7 +25,8 @@ dependencies= [
     "torchsummary",
     "einops",
     "timm",
-    "gdown"
+    "gdown",
+    "imageio"
 ]
 
 [tool.hatch.build.targets.wheel]

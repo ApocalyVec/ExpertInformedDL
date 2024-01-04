@@ -7,3 +7,4 @@ torchsummary
 einops
 timm
 gdown
+imageio
