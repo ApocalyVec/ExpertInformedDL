@@ -2,16 +2,28 @@
 
 ## Get Started
 
-
-### Use the trained model for inference
-
 Pip install the PYPI distro:
 
 ```bash
 pip install expert-informed-dl
 ```
 
-Check out example.py for a simple example of how to use the trained model for inference.
+### Here's an example of how to use the trained model for inference (with subimages)
+
+Check out eidl/examples/subimage_example.py for a simple example of how to use the trained model for inference on subimages.
+
+```python
+from eidl.utils.model_utils import get_subimage_model
+
+subimage_handler = get_subimage_model()
+subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', is_plot_results=True, discard_ratio=0.1)
+
+```
+
+
+### If you don't want to use subiamges:
+
+Check out eidl/examples/example.py for a simple example of how to use the trained model for inference.
 
 When forwarding image through the network, use the argument `collapse_attention_matrix=True` to get the attention matrix
 to get the attention matrix averaged across all heads and keys for each query token. 

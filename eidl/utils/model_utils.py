@@ -118,12 +118,13 @@ def get_subimage_model():
         # Download the file using urlretrieve
         urllib.request.urlretrieve(model_url, model_file_path)
     model = torch.load(model_file_path)
+    print("Model downloaded and loaded.")
 
     patch_size = model.patch_height, model.patch_width
 
     # get the dataset
     if not os.path.exists(dataset_path):
-        print("Downloading the dataset")
+        print("Downloading the dataset...")
         gdown.download("https://drive.google.com/uc?id=1a-UcpqLGV7xRjZ-JXRIZ0p65nzJOfkHf", output=dataset_path, quiet=False)
     from eidl.utils.SubimageHandler import SubimageHandler
     data = pickle.load(open(dataset_path, 'rb'))
