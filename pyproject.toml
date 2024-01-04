@@ -16,6 +16,20 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
 ]
+dependencies= [
+    "pandas",
+    "opencv-python",
+    "matplotlib",
+    "scikit-learn",
+    "tqdm",
+    "torchsummary",
+    "einops",
+    "timm",
+    "gdown"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["eidl"]
 
 [project.urls]
 "Homepage" = "https://github.com/ApocalyVec/ExpertInformedDL"
