@@ -47,7 +47,20 @@ def rollout(depth, grid_size, attentions, discard_ratio, head_fusion):
 
 class VITAttentionRollout:
     def __init__(self, model, device, attention_layer_name='attn_drop', head_fusion="mean",
-                 discard_ratio=0.9):
+                 discard_ratio=0.9, *args, **kwargs):
+        """
+
+
+        Parameters
+        ----------
+        model
+        device
+        attention_layer_name
+        head_fusion
+        discard_ratio: discard the bottom x% of the attention
+        args
+        kwargs
+        """
         self.model = model
         self.device = device
         self.head_fusion = head_fusion

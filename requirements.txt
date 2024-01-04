@@ -6,3 +6,4 @@ tqdm
 torchsummary
 einops
 timm
+gdown

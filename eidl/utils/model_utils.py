@@ -6,6 +6,7 @@ import urllib
 import numpy as np
 import timm
 import torch
+import gdown
 
 from eidl.Models.ExpertAttentionViT import ViT_LSTM
 from eidl.Models.ExpertAttentionViTSubImages import ViT_LSTM_subimage
@@ -105,6 +106,33 @@ def get_trained_model(device, model_param):
 
     compound_label_encoder = pickle.load(open(compound_label_encoder_file_path, 'rb'))
     return model, image_mean, image_std, image_size, compound_label_encoder
+
+def get_subimage_model():
+    github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.2"
+    model_url = f"{github_file_url}/model.pt"
+    temp_dir = tempfile.gettempdir()
+    model_file_path = os.path.join(temp_dir, "subimage_model.pt")
+    dataset_path = os.path.join(temp_dir, "oct_reports_info.p")
+
+    if not os.path.exists(model_file_path):
+        # Download the file using urlretrieve
+        urllib.request.urlretrieve(model_url, model_file_path)
+    model = torch.load(model_file_path)
+
+    patch_size = model.patch_height, model.patch_width
+
+    # get the dataset
+    if not os.path.exists(dataset_path):
+        print("Downloading the dataset")
+        gdown.download("https://drive.google.com/uc?id=1a-UcpqLGV7xRjZ-JXRIZ0p65nzJOfkHf", output=dataset_path, quiet=False)
+    from eidl.utils.SubimageHandler import SubimageHandler
+    data = pickle.load(open(dataset_path, 'rb'))
+    subimage_handler = SubimageHandler()
+    subimage_handler.load_image_data(data, patch_size=patch_size)
+    subimage_handler.model = model
+
+    return subimage_handler
+
 
 def load_image_preprocess(image_path, image_size, image_mean, image_std):
     image = load_oct_image(image_path, image_size)

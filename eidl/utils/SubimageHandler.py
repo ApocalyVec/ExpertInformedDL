@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from eidl.utils.iter_utils import collate_fn, collate_subimages
 from eidl.utils.image_utils import preprocess_subimages, z_norm_subimages, process_aoi
 from eidl.utils.torch_utils import any_image_to_tensor
+from eidl.viz.vit_rollout import VITAttentionRollout
 from eidl.viz.viz_oct_results import register_cmap_with_alpha
 from eidl.viz.viz_utils import plot_subimage_rolls, plot_image_attention
 
@@ -17,6 +18,7 @@ class SubimageHandler:
         self.subimage_mean = None
         self.subimage_std = None
         self.image_data_dict = None
+        self.model = None
 
 
     def load_image_data(self, image_data_dict, *args, **kwargs):
@@ -83,7 +85,8 @@ class SubimageHandler:
         self.image_data_dict = image_data_dict
         return image_data_dict
 
-    def compute_perceptual_attention(self, image_name, model, source_attention=None, overlay_alpha=0.75, is_plot_resutls=True, save_dir=None):
+    def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
+                                     *args, **kwargs):
         """
 
         Parameters
@@ -91,20 +94,21 @@ class SubimageHandler:
         image_name: name of the image in the image data dict
         source_attention: default None, ndarray: the human attention with which the perceptual attention will be computed.
                         if not provided, the model attention will be returned
-        model
-        is_plot_resutls: if True, the results will be plotted, see the parameter save_dir
+        is_plot_results: if True, the results will be plotted, see the parameter save_dir
         save_dir: if provided, the plots will be saved to this directory instead of being shown
 
         Returns
         -------
 
         """
+        assert self.model is not None, "model must be provided by setting it to the model attribute of the SubimageHandler class"
         assert image_name in self.image_data_dict.keys(), f"image name {image_name} is not in the image data dict"
         sample = self.image_data_dict[image_name]
         assert source_attention.shape == sample['original_image'].shape[:-1], f"source attention shape {source_attention.shape} does not match image shape {sample['original_image'].shape[:-1]}"
         image_original_size = sample['original_image'].shape[:-1]
-        device = next(model.parameters()).device
-        patch_size = model.patch_height, model.patch_width
+
+        device = next(self.model.parameters()).device
+        patch_size = self.model.patch_height, self.model.patch_width
 
         # run the model on the image
         image, *_ = collate_subimages([sample])
@@ -113,22 +117,27 @@ class SubimageHandler:
         subimages = [x[0].detach().cpu().numpy() for x in image['subimages']]  # the subimages in a single image
         subimage_positions = [x['position'] for x in sample['sub_images']]
 
-        output, attention = model(image, fixation_sequence=None)
+        vit_rollout = VITAttentionRollout(self.model, device=device, attention_layer_name='attn_drop', *args, **kwargs)
+        attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
 
         # get the subimage attention from the source
-        rollout_image, subimage_roll = process_aoi(attention[0, 0].detach().cpu().numpy(), image_original_size, True,
-                                                   grid_size=model.get_grid_size(),
+        rollout_image, subimage_roll = process_aoi(attention, image_original_size, True,
+                                                   grid_size=self.model.get_grid_size(),
                                                    subimage_masks=subimage_masks, subimages=subimages,
                                                    subimage_positions=subimage_positions, patch_size=patch_size)
 
         if source_attention is not None:
-            pass
+            for s_image in sample['sub_images']:
+                s_source_attention = source_attention[s_image['position'][0][0]:s_image['position'][1][0],
+                                     s_image['position'][0][1]:s_image['position'][1][1]]
+                pass
 
-        if is_plot_resutls is not None:
-            image_original = np.array(sample['original_image'].numpy(), dtype=np.uint8)
+        if is_plot_results is not None:
+            image_original = sample['original_image']
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
             cmap_name = register_cmap_with_alpha('viridis')
             plot_image_attention(image_original, rollout_image, source_attention, cmap_name,
                                  notes=f'{image_name}', overlay_alpha=overlay_alpha, save_dir=save_dir)
             plot_subimage_rolls(subimage_roll, subimages, subimage_positions, self.subimage_std, self.subimage_mean,
                                 cmap_name, notes=f"{image_name}", overlay_alpha=overlay_alpha, save_dir=save_dir)
+        return {"original_image_attention": rollout_image, "subimage_attention": subimage_roll, "subimage_position": subimage_positions}
