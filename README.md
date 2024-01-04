@@ -48,3 +48,14 @@ If you set `collapse_attention_matrix=False`, the attention matrix will be
 uncollapsed. The resulting attention matrix will be of shape (n_batch, n_heads, n_queries, n_keys). For example, if you have 32 * 32 patches,
 one image and one head, the attention matrix will be of shape (1, 1, 1025, 1025).
 
+
+## Troubleshoot
+
+If get model functions raises the following error:
+
+```bash
+RuntimeError: Attempting to deserialize object on a CUDA device but torch.cuda.is_available() is False. If you are running on a CPU-only machine, please use torch.load with map_location=torch.device('cpu') to map your storages to the CPU.
+```
+
+You will need to install the correct version of Pytorch matching with a CUDA version matching your GPU from [here](https://pytorch.org/get-started/locally/).
+This is because all the models are trained on GPU.
