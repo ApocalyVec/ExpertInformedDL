@@ -3,6 +3,7 @@ import pickle
 import tempfile
 import urllib
 
+import numpy as np
 import timm
 import torch
 
@@ -10,7 +11,7 @@ from eidl.Models.ExpertAttentionViT import ViT_LSTM
 from eidl.Models.ExpertAttentionViTSubImages import ViT_LSTM_subimage
 from eidl.Models.ExtensionModels import ExpertTimmVisionTransformer
 from eidl.utils.image_utils import load_oct_image
-from eidl.utils.iter_utils import reverse_tuple
+from eidl.utils.iter_utils import reverse_tuple, chunker
 
 
 def get_vit_model(model_name, image_size, depth, device, *args, **kwargs):
@@ -111,3 +112,53 @@ def load_image_preprocess(image_path, image_size, image_mean, image_std):
     # transpose to channel first
     image_normalized = image_normalized.transpose((2, 0, 1))
     return image_normalized, image
+
+def get_best_model(models, results_dict):
+    models = list(reversed(list(models)))
+    best_model, best_model_results, best_model_config_string = None, None, None
+    for model in models:  # get the best model each model architecture
+        # model = 'vit_small_patch32_224_in21k'
+        # model = 'base'
+        best_model_val_acc = -np.inf
+        best_model_config_string = None
+        best_model_results = None
+        for model_config_string, results in results_dict.items():
+            this_val_acc = np.max(results['val_accs'])
+            if parse_model_parameter(model_config_string, 'model') == model and this_val_acc > best_model_val_acc:
+                best_model_val_acc = this_val_acc
+                best_model_config_string = model_config_string
+                best_model_results = results
+
+        print(f"Best model for {model} has val acc of {best_model_val_acc} with parameters: {best_model_config_string}")
+        best_model = best_model_results['model']
+    return best_model, best_model_results, best_model_config_string
+
+def parse_training_results(results_dir):
+    results_dict = {}
+    model_config_strings = [i.strip('log_').strip('.txt') for i in os.listdir(results_dir) if i.startswith('log')]
+    # columns = ['model_name', 'train acc', 'train loss', 'validation acc', 'validation loss', 'test acc']
+    # results_df = pd.DataFrame(columns=columns)
+
+    for i, model_config_string in enumerate(model_config_strings):
+        print(f"Processing [{i}] of {len(model_config_strings)} model configurations: {model_config_string}")
+        model = torch.load(
+            os.path.join(results_dir,
+                         f'best_{model_config_string}.pt'))  # TODO should load the model with smallest loss??
+        with open(os.path.join(results_dir, f'log_{model_config_string}.txt'), 'r') as file:
+            lines = file.readlines()
+
+        results = []
+        for epoch_lines in chunker(lines, 3):  # iterate three lines at a time
+            train_loss, train_acc = [np.nan if x == '' else float(x) for x in epoch_lines[1].strip("training: ").split(",")]
+            val_loss, val_acc = [np.nan if x == '' else float(x) for x in epoch_lines[2].strip('validation: ').split(",")]
+            results.append((train_acc, train_loss, val_acc, val_loss))
+        results = np.array(results)
+        # best_val_acc_epoch_index = np.argmax(results[:, 2])
+        # test_acc = test_without_fixation(model, test_loader, device)  # TODO restore the test_acc after adding test method to extention
+        # add viz pca of patch embeddings, attention rollout (gif and overlay), and position embeddings,
+        # values = [model_config_string, *results[best_val_acc_epoch_index], test_acc]
+        # results_df = pd.concat([results_df, pd.DataFrame(dict(zip(columns, values)))], ignore_index=True) # TODO fix the concat
+        test_acc = None
+        results_dict[model_config_string] = {'model_config_string': model_config_string, 'train_accs': results[:, 0], 'train_losses': results[:, 1], 'val_accs': results[:, 2], 'val_losses': results[:, 3], 'test_acc': test_acc, 'model': model}  # also save the model
+    # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
+    return results_dict, model_config_strings

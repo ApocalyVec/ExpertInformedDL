@@ -13,14 +13,13 @@ from torch.utils.data import DataLoader
 import torch.nn.utils.rnn as rnn_utils
 from PIL import Image
 
-from eidl.datasets.OCTDataset import collate_fn
 from eidl.utils.image_utils import remap_subimage_aoi, process_aoi
-from eidl.utils.iter_utils import chunker
-from eidl.utils.model_utils import parse_model_parameter
+from eidl.utils.iter_utils import chunker, collate_fn
+from eidl.utils.model_utils import parse_model_parameter, get_best_model, parse_training_results
 from eidl.utils.torch_utils import any_image_to_tensor
 from eidl.viz.vit_rollout import VITAttentionRollout
 
-from eidl.viz.viz_utils import plt2arr, plot_train_history
+from eidl.viz.viz_utils import plt2arr, plot_train_history, plot_subimage_rolls, plot_image_attention
 
 
 def register_cmap_with_alpha(cmap_name):
@@ -65,31 +64,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     # load the test dataset ############################################################################################
     test_dataset = pickle.load(open(os.path.join(results_dir, 'test_dataset.p'), 'rb'))
 
-    model_config_strings = [i.strip('log_').strip('.txt') for i in os.listdir(results_dir) if i.startswith('log')]
-    columns = ['model_name', 'train acc', 'train loss', 'validation acc', 'validation loss', 'test acc']
-    results_df = pd.DataFrame(columns=columns)
-    results_dict = {}
-    for i, model_config_string in enumerate(model_config_strings):
-        print(f"Processing [{i}] of {len(model_config_strings)} model configurations: {model_config_string}")
-        model = torch.load(
-            os.path.join(results_dir,
-                         f'best_{model_config_string}.pt'))  # TODO should load the model with smallest loss??
-        with open(os.path.join(results_dir, f'log_{model_config_string}.txt'), 'r') as file:
-            lines = file.readlines()
-
-        results = []
-        for epoch_lines in chunker(lines, 3):  # iterate three lines at a time
-            train_loss, train_acc = [np.nan if x == '' else float(x) for x in epoch_lines[1].strip("training: ").split(",")]
-            val_loss, val_acc = [np.nan if x == '' else float(x) for x in epoch_lines[2].strip('validation: ').split(",")]
-            results.append((train_acc, train_loss, val_acc, val_loss))
-        results = np.array(results)
-        # best_val_acc_epoch_index = np.argmax(results[:, 2])
-        # test_acc = test_without_fixation(model, test_loader, device)  # TODO restore the test_acc after adding test method to extention
-        # add viz pca of patch embeddings, attention rollout (gif and overlay), and position embeddings,
-        # values = [model_config_string, *results[best_val_acc_epoch_index], test_acc]
-        # results_df = pd.concat([results_df, pd.DataFrame(dict(zip(columns, values)))], ignore_index=True) # TODO fix the concat
-        test_acc = None
-        results_dict[model_config_string] = {'model_config_string': model_config_string, 'train_accs': results[:, 0], 'train_losses': results[:, 1], 'val_accs': results[:, 2], 'val_losses': results[:, 3], 'test_acc': test_acc, 'model': model}  # also save the model
+    results_dict, model_config_strings = parse_training_results(results_dir)
 
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
 
@@ -170,33 +145,21 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 plt.show()
 
     # visualize the attention rollout ##################################################################################
-    models = list(reversed(list(models)))
     cmap_name = register_cmap_with_alpha('viridis')
-    for model in models:  # get the best model each model architecture
-        # model = 'vit_small_patch32_224_in21k'
-        # model = 'base'
-        best_model_val_acc = -np.inf
-        best_model_config_string = None
-        best_model_results = None
-        for model_config_string, results in results_dict.items():
-            this_val_acc = np.max(results['val_accs'])
-            if parse_model_parameter(model_config_string, 'model') == model and this_val_acc > best_model_val_acc:
-                best_model_val_acc = this_val_acc
-                best_model_config_string = model_config_string
-                best_model_results = results
 
-        print(f"Best model for {model} has val acc of {best_model_val_acc} with parameters: {best_model_config_string}")
-        best_model = best_model_results['model']
-        model_depth = best_model.depth
+    models = list(reversed(list(models)))
 
+    best_model, best_model_results, best_model_config_string = get_best_model(models, results_dict)
     best_model.eval()
-    patch_size = best_model.ViT.patch_height, best_model.ViT.patch_width  # TODO change this to remove ViT_LSTM
+    patch_size = best_model.patch_height, best_model.patch_width
+    model_depth = best_model.depth
+
     # visualize the training history of the best model ##################################################################
     plot_train_history(best_model_results, note=f"{best_model_config_string}")
 
     # register target cmap #########################################################
     has_subimage = test_dataset.trial_samples[0].keys()
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=True, collate_fn=collate_fn)  # one image at a time
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
     with torch.no_grad():
         test_dataset.create_aoi(best_model.get_grid_size())
@@ -259,57 +222,11 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                     rollout_image, subimage_roll = process_aoi(rolls[0], image_original_size, has_subimage,
                                                grid_size=best_model.get_grid_size(),
                                                subimage_masks=subimage_masks, subimages=subimages, subimage_positions=subimage_positions, patch_size=patch_size)
-                    fig = plt.figure(figsize=(30, 20), constrained_layout=True)
 
-                    plt.subplot(2, 2, 1)
-                    plt.imshow(image_original)  # plot the original image
-                    plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
-                    plt.axis('off')
-                    plt.title("Expert Attention Overlay")
-
-                    plt.subplot(2, 2, 3)
-                    plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
-                    plt.axis('off')
-                    plt.title("Expert Attention")
-
-                    plt.subplot(2, 2, 2)
-                    plt.imshow(image_original)  # plot the original image
-                    plt.imshow(rollout_image, cmap=cmap_name, alpha=rollout_transparency)
-                    plt.axis('off')
-                    plt.title("Model Attention Overlay")
-
-                    plt.subplot(2, 2, 4)
-                    plt.imshow(rollout_image, cmap=cmap_name, alpha=rollout_transparency)
-                    plt.axis('off')
-                    plt.title("Model Attention")
-
-                    plt.suptitle(title_text := f'Sample {sample_count} in test set, model {model}, roll depth {i}')
-                    # plt.show()
-
-                    fig.savefig(f'figures/{title_text}.png')
-
-                    for s_i, (s_roll, s_image, s_pos) in enumerate(zip(subimage_roll, subimages, subimage_positions)):
-                        # unznorm the image
-                        s_image_unznormed = np.transpose(s_image, (1, 2, 0)) * image_stats['subimage_std'] + image_stats['subimage_mean']
-                        s_image_unznormed = s_image_unznormed.astype(np.uint8)
-                        s_image_unznormed = cv2.cvtColor(s_image_unznormed, cv2.COLOR_BGR2RGB)
-                        s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]
-                        s_image_unznormed = s_image_unznormed[:s_image_size[0], :s_image_size[1]]
-
-                        # plot the aoi and subimage side by side, using subplot
-                        s_fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                        plt.subplot(1, 2, 1)
-
-                        plt.imshow(s_image_unznormed)
-                        plt.axis('off')
-
-                        plt.subplot(1, 2, 2)
-                        plt.imshow(s_roll, cmap=cmap_name, alpha=rollout_transparency)
-                        plt.axis('off')
-
-                        plt.suptitle(title_text := f'Sample {sample_count} in test set, model {model}, roll depth {i}, subimage {s_i}')
-                        # plt.show()
-                        s_fig.savefig(f'figures/{title_text}.png')
+                    plot_image_attention(image_original, rollout_image, _aoi_heatmap, cmap_name,
+                                         notes=f'Sample  {sample_count} in test  set, model {model}, roll depth {i}')
+                    plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['std'], image_stats['mean'], cmap_name,
+                                        notes=f"Sample {sample_count} in test set, model: {model}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir='figures')
 
                     # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
                     fig_list.append(plt2arr(fig))
@@ -337,3 +254,6 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
     if plot_format == 'grid':
         plt.show()
+
+
+

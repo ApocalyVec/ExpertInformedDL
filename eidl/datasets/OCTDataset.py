@@ -11,9 +11,8 @@ from sklearn import preprocessing
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import Dataset
 
-from eidl.utils.image_utils import generate_image_binary_mask, resize_image, load_oct_image, preprocess_subimages, \
-    z_norm_subimages, get_heatmap, SubimageLoader
-from eidl.utils.iter_utils import reverse_tuple
+from eidl.utils.image_utils import generate_image_binary_mask, resize_image, load_oct_image, get_heatmap
+from eidl.utils.SubimageHandler import SubimageHandler
 
 
 def get_label(df_dir):
@@ -139,35 +138,6 @@ class OCTDatasetV3(Dataset):
         #         'heatmap': self.heatmaps[index]}
 
 
-def collate_fn(batch):
-    img = torch.stack([torch.FloatTensor(item['image_z_normed']) for item in batch], dim=0)
-    # label = torch.LongTensor([item['label'] for item in batch])
-    label = torch.IntTensor([item['label_encoded'] for item in batch])
-    label_encoded = torch.FloatTensor([item['label_onehot_encoded'] for item in batch])
-    # if np.any(np.array([item['seq'] for item in batch]) == None):
-    #     fixation_sequence = None
-    #     aoi_heatmap = None
-    # else:
-    fixation_sequence = [torch.FloatTensor(item['fix_seq']) for item in batch]
-    aoi_heatmap = torch.stack([torch.FloatTensor(item['aoi']) for item in batch], dim=0)
-    image_resized = torch.stack([torch.FloatTensor(item['image']) for item in batch], dim=0)
-    # image_original = torch.stack([torch.FloatTensor(item['original_image']) for item in batch], dim=0)
-    image_original = [torch.FloatTensor(item['original_image']) for item in batch]
-
-    if 'sub_images' in batch[0].keys():
-        subimages = []
-        subimage_masks = []
-        n_subimages = len(batch[0]['sub_images'])
-        subimage_positions = []
-        for i in range(n_subimages):
-            subimages.append(torch.stack([torch.FloatTensor(item['sub_images'][i]['image']) for item in batch], dim=0))
-            subimage_masks.append(torch.stack([torch.BoolTensor(item['sub_images'][i]['mask']) for item in batch], dim=0))
-            subimage_positions.append([item['sub_images'][i]['position'] for item in batch])
-
-        return {'subimages': subimages, 'masks': subimage_masks}, label, label_encoded, fixation_sequence, aoi_heatmap, image_resized, image_original, subimage_positions
-    else:
-        return img, label, label_encoded, fixation_sequence, aoi_heatmap, image_resized, image_original
-
 def minmax_norm(x):
     x = x.copy()
     x[:, 0] = (x[:, 0] - min(x[:, 0])) / (max(x[:, 0]) - min(x[:, 0]))
@@ -214,7 +184,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
     pvalovia_dir = os.path.join(data_root, 'pvalovia-data')
 
     # check if cropped image data exists
-    subimage_loader = SubimageLoader()
+    subimage_loader = SubimageHandler()
     if cropped_image_data_path is None:
         # get the images and labels from the image directories
         image_root = os.path.join(data_root, 'reports_cleaned')
@@ -238,7 +208,7 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
                                          for image_name, image in zip(image_names, images)}}
     else:
         cropped_image_data = pickle.load(open(cropped_image_data_path, 'rb'))
-        image_data = subimage_loader.load_image_data(cropped_image_data, resize_to=image_size, n_jobs=n_jobs, *args, **kwargs)
+        image_data = subimage_loader.load_image_data(cropped_image_data, n_jobs=n_jobs, *args, **kwargs)
 
         load_image_args = [(image_name, image_size, image_info_dict['original_image']) for image_name, image_info_dict in cropped_image_data.items()]
         with Pool(n_jobs) as p:
