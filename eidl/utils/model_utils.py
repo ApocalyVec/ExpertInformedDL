@@ -84,7 +84,7 @@ def get_trained_model(device, model_param):
         raise ValueError(f"model_param {model_param} is not supported")
 
     github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.1"
-    model_url = f"{github_file_url}/best_model-base_alpha-0.01_dist-cross-entropy_depth-1_lr-0.0001_statedict_{model_param}.pt"
+    model_url = f"{github_file_url}/trained_model/best_model-base_alpha-0.01_dist-cross-entropy_depth-1_lr-0.0001_statedict_{model_param}.pt"
     image_mstd_url = f"{github_file_url}/image_means_stds_{model_param}.p"
     compound_label_encoder_url = f"{github_file_url}/compound_label_encoder.p"
 
@@ -109,7 +109,7 @@ def get_trained_model(device, model_param):
 
 def get_subimage_model():
     github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.2"
-    model_url = f"{github_file_url}/model.pt"
+    model_url = f"{github_file_url}/trained_model/model.pt"
     temp_dir = tempfile.gettempdir()
     model_file_path = os.path.join(temp_dir, "subimage_model.pt")
     dataset_path = os.path.join(temp_dir, "oct_reports_info.p")
