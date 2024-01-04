@@ -104,7 +104,8 @@ class SubimageHandler:
         assert self.model is not None, "model must be provided by setting it to the model attribute of the SubimageHandler class"
         assert image_name in self.image_data_dict.keys(), f"image name {image_name} is not in the image data dict"
         sample = self.image_data_dict[image_name]
-        assert source_attention.shape == sample['original_image'].shape[:-1], f"source attention shape {source_attention.shape} does not match image shape {sample['original_image'].shape[:-1]}"
+        if source_attention is not None:
+            assert source_attention.shape == sample['original_image'].shape[:-1], f"source attention shape {source_attention.shape} does not match image shape {sample['original_image'].shape[:-1]}"
         image_original_size = sample['original_image'].shape[:-1]
 
         device = next(self.model.parameters()).device
@@ -131,7 +132,8 @@ class SubimageHandler:
                 s_source_attention = source_attention[s_image['position'][0][0]:s_image['position'][1][0],
                                      s_image['position'][0][1]:s_image['position'][1][1]]
                 pass
-
+        else:
+            source_attention = rollout_image
         if is_plot_results is not None:
             image_original = sample['original_image']
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)

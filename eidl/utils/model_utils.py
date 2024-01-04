@@ -115,7 +115,6 @@ def get_subimage_model():
     dataset_path = os.path.join(temp_dir, "oct_reports_info.p")
 
     if not os.path.exists(model_file_path):
-        # Download the file using urlretrieve
         urllib.request.urlretrieve(model_url, model_file_path)
     model = torch.load(model_file_path)
     print("Model downloaded and loaded.")
@@ -125,7 +124,8 @@ def get_subimage_model():
     # get the dataset
     if not os.path.exists(dataset_path):
         print("Downloading the dataset...")
-        gdown.download("https://drive.google.com/uc?id=1a-UcpqLGV7xRjZ-JXRIZ0p65nzJOfkHf", output=dataset_path, quiet=False)
+
+        gdown.download("https://drive.google.com/uc?id=1V2-jSmEKl-7xzvleYRoDZJAdAQP7be_G", output=dataset_path, quiet=False)
     from eidl.utils.SubimageHandler import SubimageHandler
     data = pickle.load(open(dataset_path, 'rb'))
     subimage_handler = SubimageHandler()

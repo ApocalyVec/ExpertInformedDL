@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "expert-informed-dl"
-version = "0.0.3.dev1"
+version = "0.0.4.dev1"
 authors = [
-  { name="Ziheng 'Leo' Li", email="apocalybec@gmail.com" },
+  { name="Ziheng 'Leo' Li", email="apocalyvec@gmail.com" },
 ]
 description = "Deep learning image classificaiton informed by expert attention"
 readme = "README.md"
