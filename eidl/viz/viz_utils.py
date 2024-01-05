@@ -48,12 +48,12 @@ def plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_std,
         # plot the aoi and subimage side by side, using subplot
         s_fig = plt.figure(figsize=(15, 10), constrained_layout=True)
         plt.subplot(1, 2, 1)
-
         plt.imshow(s_image_unznormed)
         plt.axis('off')
 
         plt.subplot(1, 2, 2)
-        plt.imshow(s_roll, cmap=cmap_name, alpha=overlay_alpha)
+        plt.imshow(s_roll, cmap=cmap_name)
+        plt.colorbar()
         plt.axis('off')
 
         plt.suptitle(title_text := f'Subimage {s_i}, {notes}')
@@ -68,14 +68,16 @@ def plot_image_attention(image_original, attention, aoi_heatmap, cmap_name, over
 
     plt.subplot(2, 2, 1)
     plt.imshow(image_original)  # plot the original image
-    plt.imshow(aoi_heatmap, cmap=cmap_name, alpha=overlay_alpha)
+    if aoi_heatmap is not None:
+        plt.imshow(aoi_heatmap, cmap=cmap_name, alpha=overlay_alpha)
     plt.axis('off')
     plt.title("Source Attention Overlay")
 
-    plt.subplot(2, 2, 3)
-    plt.imshow(aoi_heatmap, cmap=cmap_name, alpha=overlay_alpha)
-    plt.axis('off')
-    plt.title("Source Attention")
+    if aoi_heatmap is not None:
+        plt.subplot(2, 2, 3)
+        plt.imshow(aoi_heatmap, cmap=cmap_name, alpha=overlay_alpha)
+        plt.axis('off')
+        plt.title("Source Attention")
 
     plt.subplot(2, 2, 2)
     plt.imshow(image_original)  # plot the original image

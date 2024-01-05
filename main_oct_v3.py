@@ -27,7 +27,7 @@ data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
 cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info.p'
 results_dir = 'results'
 
-n_jobs = 20  # n jobs for loading data from hard drive
+n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
 epochs = 100
@@ -38,7 +38,7 @@ folds = 3
 # grid search hyper-parameters ##################################
 ################################################################
 # depths = 1, 3
-depths = 1,
+depths = 2,
 
 ################################################################
 # alphas = 0.0, 1e-2, 0.1, 0.25, 0.5, 0.75, 1.0

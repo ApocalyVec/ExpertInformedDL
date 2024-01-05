@@ -9,7 +9,26 @@ from timm.models.vision_transformer import VisionTransformer
 from eidl.utils.torch_utils import any_image_to_tensor
 
 
-def rollout(depth, grid_size, attentions, discard_ratio, head_fusion):
+def rollout(depth, grid_size, attentions, discard_ratio, head_fusion, normalize=True, return_raw_attention=False, *args, **kwargs):
+    """
+
+    Parameters
+    ----------
+    depth
+    grid_size
+    attentions
+    discard_ratio
+    head_fusion
+    return_raw_attention: if false, the classification token's attention will be normalized and returned as a mask
+                          if true, the raw attention will be returned
+    normalize: if true, the attention will be normalized by dividing by the maximum attention
+    args
+    kwargs
+
+    Returns
+    -------
+
+    """
     result = torch.eye(attentions[0].size(-1))
     with torch.no_grad():
         for i, attention in enumerate(attentions):
@@ -37,11 +56,11 @@ def rollout(depth, grid_size, attentions, discard_ratio, head_fusion):
             if i == depth:
                 break
 
-    # Look at the total attention between the class token,
-    # and the image patches
-    mask = result[0, 0, 1:].numpy()
-    # In case of 224x224 image, this brings us from 196 to 14
-    mask = mask / np.max(mask)
+    if not return_raw_attention:
+        result = result[0, 0, 1:]  # Look at the total attention between the class token, # and the image patches
+    mask = result.numpy()
+    if normalize:
+        mask = mask / np.max(mask)
     return mask
 
 
@@ -141,4 +160,4 @@ class VITAttentionRollout:
         #     elif isinstance(self.model, VisionTransformer):
         #         output = self.model(input_tensor)
 
-        return rollout(depth, self.model.get_grid_size(), self.attentions, self.discard_ratio, self.head_fusion)
+        return rollout(depth, self.model.get_grid_size(), self.attentions, self.discard_ratio, self.head_fusion, *args, **kwargs)

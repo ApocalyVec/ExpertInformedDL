@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from eidl.utils.iter_utils import collate_fn, collate_subimages
-from eidl.utils.image_utils import preprocess_subimages, z_norm_subimages, process_aoi
+from eidl.utils.image_utils import preprocess_subimages, z_norm_subimages, process_aoi, patchify
 from eidl.utils.torch_utils import any_image_to_tensor
 from eidl.viz.vit_rollout import VITAttentionRollout
 from eidl.viz.viz_oct_results import register_cmap_with_alpha
@@ -64,14 +64,16 @@ class SubimageHandler:
 
         # process the subimages if there are any
         print("z norming subimages")
-        image_data_dict, self.subimage_mean, self.subimage_std = z_norm_subimages(image_data_dict)
+        image_data_dict, self.subimage_mean, self.subimage_std = z_norm_subimages(image_data_dict, *args, **kwargs)
 
+        print("transposing subimages")
         for k, x in image_data_dict.items():
             for s_image_name, s_image_data in image_data_dict[k]['sub_images'].items():
                 image_data_dict[k]['sub_images'][s_image_name]['sub_image_cropped_padded_z_normed'] = s_image_data[
                     'sub_image_cropped_padded_z_normed'].transpose((2, 0, 1))
 
         # get rid of the extra fields
+        print("rewriting dictionary keys")
         subimage_names = list(image_data_dict[list(image_data_dict.keys())[0]]['sub_images'].keys())
         for image_name, image_data in image_data_dict.items():
             subimages = image_data.pop('sub_images')
@@ -86,6 +88,7 @@ class SubimageHandler:
         return image_data_dict
 
     def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
+                                     normalize_by_subimage=False,
                                      *args, **kwargs):
         """
 
@@ -99,7 +102,7 @@ class SubimageHandler:
 
         Returns
         -------
-
+        {"original_image_attention": rollout_image, "subimage_attention": subimage_roll, "subimage_position": subimage_positions}
         """
         assert self.model is not None, "model must be provided by setting it to the model attribute of the SubimageHandler class"
         assert image_name in self.image_data_dict.keys(), f"image name {image_name} is not in the image data dict"
@@ -119,21 +122,34 @@ class SubimageHandler:
         subimage_positions = [x['position'] for x in sample['sub_images']]
 
         vit_rollout = VITAttentionRollout(self.model, device=device, attention_layer_name='attn_drop', *args, **kwargs)
-        attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
 
-        # get the subimage attention from the source
+        if source_attention is not None:
+            attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None, normalize=True, return_raw_attention=True)[0, 1:, 1:]
+            source_attention_patchified = []
+            for s_image in sample['sub_images']:
+                s_source_attention = source_attention[
+                                     s_image['position'][0][1]:(s_image['position'][0][1] + s_image['image'].shape[1]),
+                                     s_image['position'][0][0]:(s_image['position'][0][0] + s_image['image'].shape[2])]
+                # patchify the source attention
+                s_source_attention_patches = patchify(s_source_attention, patch_size)
+                s_source_attention_patches = s_source_attention_patches.reshape(s_source_attention_patches.shape[0], -1)
+                s_source_attention_patches = np.mean(s_source_attention_patches, axis=1)
+                source_attention_patchified.append(s_source_attention_patches)
+            source_attention_patchified = np.concatenate(source_attention_patchified)
+            # compute the perceptual attention
+            attention = np.einsum('i,ij->j', source_attention_patchified, attention)
+
+            # _attention = np.zeros(len(source_attention_patchified))
+            # for i in range(len(source_attention_patchified)):
+            #     _attention += source_attention_patchified[i] * attention[i, :]
+            # attention = _attention
+        else:
+            attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None, *args, **kwargs)
+            # get the subimage attention from the source
         rollout_image, subimage_roll = process_aoi(attention, image_original_size, True,
                                                    grid_size=self.model.get_grid_size(),
                                                    subimage_masks=subimage_masks, subimages=subimages,
                                                    subimage_positions=subimage_positions, patch_size=patch_size)
-
-        if source_attention is not None:
-            for s_image in sample['sub_images']:
-                s_source_attention = source_attention[s_image['position'][0][0]:s_image['position'][1][0],
-                                     s_image['position'][0][1]:s_image['position'][1][1]]
-                pass
-        else:
-            source_attention = rollout_image
         if is_plot_results is not None:
             image_original = sample['original_image']
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)

@@ -1,3 +1,6 @@
+import itertools
+from multiprocessing import Pool
+
 import PIL
 import cv2
 import numpy as np
@@ -141,7 +144,35 @@ def preprocess_subimages(cropped_image_data, patch_size=(32, 32), white_patch_ma
     return cropped_image_data
 
 
-def z_norm_subimages(name_label_images_dict):
+def patchify(image, patch_size):
+    # Unpack the dimensions of the patch size
+    patch_height, patch_width = patch_size
+
+    # Get the dimensions of the image
+    img_height, img_width = image.shape[:2]
+
+    # Check if the image is grayscale or color
+    if len(image.shape) == 2:  # Grayscale image
+        # Reshape the image into patches
+        patches = image.reshape(img_height // patch_height, patch_height, img_width // patch_width, patch_width)
+        # Transpose the axes to bring patches to the front
+        patches = patches.transpose(0, 2, 1, 3)
+        # Reshape to the final 2D array (num_patches, patch_height, patch_width)
+        patches = patches.reshape(-1, patch_height, patch_width)
+    else:  # Color image
+        # Get the number of channels
+        num_channels = image.shape[2]
+        # Reshape the image into patches
+        patches = image.reshape(img_height // patch_height, patch_height, img_width // patch_width, patch_width, num_channels)
+        # Transpose the axes to bring patches to the front
+        patches = patches.transpose(0, 2, 1, 3, 4)
+        # Reshape to the final 3D array (num_patches, patch_height, patch_width, num_channels)
+        patches = patches.reshape(-1, patch_height, patch_width, num_channels)
+
+    return patches
+
+
+def z_norm_subimages(name_label_images_dict, n_jobs=1, *args, **kwargs):
     image_names = list(name_label_images_dict.keys())
     sub_image_names = list(name_label_images_dict[image_names[0]]['sub_images'].keys())
 
@@ -154,6 +185,11 @@ def z_norm_subimages(name_label_images_dict):
     all_std = np.sqrt(np.mean(np.square(std_values), axis=0))
 
     # now normalize the sub images
+    # znorm_image_args = [[(s_image_data['sub_image_cropped_padded'], all_mean, all_std) for s_image_name, s_image_data in image_data['sub_images'].items()] for image_name, image_data in name_label_images_dict.items()]
+    # znorm_image_args = list(itertools.chain.from_iterable(znorm_image_args))
+    # with Pool(n_jobs) as p:
+    #     images = p.starmap(z_normalize_image, znorm_image_args)
+
     for image_name, image_data in name_label_images_dict.items():
         for s_image_name, s_image_data in image_data['sub_images'].items():
             s_image_data['sub_image_cropped_padded_z_normed'] = z_normalize_image(s_image_data['sub_image_cropped_padded'], all_mean, all_std)

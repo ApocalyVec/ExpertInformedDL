@@ -107,7 +107,7 @@ def get_trained_model(device, model_param):
     compound_label_encoder = pickle.load(open(compound_label_encoder_file_path, 'rb'))
     return model, image_mean, image_std, image_size, compound_label_encoder
 
-def get_subimage_model():
+def get_subimage_model(*args, **kwargs):
     github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.2"
     model_url = f"{github_file_url}/model.pt"
     temp_dir = tempfile.gettempdir()
@@ -129,7 +129,7 @@ def get_subimage_model():
     from eidl.utils.SubimageHandler import SubimageHandler
     data = pickle.load(open(dataset_path, 'rb'))
     subimage_handler = SubimageHandler()
-    subimage_handler.load_image_data(data, patch_size=patch_size)
+    subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
     subimage_handler.model = model
 
     return subimage_handler
