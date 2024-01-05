@@ -56,7 +56,7 @@ def plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_std,
         plt.colorbar()
         plt.axis('off')
 
-        plt.suptitle(title_text := f'Subimage {s_i}, {notes}')
+        plt.suptitle(title_text := f'{notes} Subimage {s_i}')
 
         if save_dir is not None:
             plt.savefig(os.path.join(save_dir, f'{title_text}.png'))

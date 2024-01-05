@@ -88,7 +88,7 @@ class SubimageHandler:
         return image_data_dict
 
     def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
-                                     normalize_by_subimage=False,
+                                     normalize_by_subimage=False, notes='',
                                      *args, **kwargs):
         """
 
@@ -144,7 +144,7 @@ class SubimageHandler:
             #     _attention += source_attention_patchified[i] * attention[i, :]
             # attention = _attention
         else:
-            attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None, *args, **kwargs)
+            attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
             # get the subimage attention from the source
         rollout_image, subimage_roll = process_aoi(attention, image_original_size, True,
                                                    grid_size=self.model.get_grid_size(),
@@ -155,7 +155,7 @@ class SubimageHandler:
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
             cmap_name = register_cmap_with_alpha('viridis')
             plot_image_attention(image_original, rollout_image, source_attention, cmap_name,
-                                 notes=f'{image_name}', overlay_alpha=overlay_alpha, save_dir=save_dir)
+                                 notes=f'{notes}{image_name}', overlay_alpha=overlay_alpha, save_dir=save_dir)
             plot_subimage_rolls(subimage_roll, subimages, subimage_positions, self.subimage_std, self.subimage_mean,
-                                cmap_name, notes=f"{image_name}", overlay_alpha=overlay_alpha, save_dir=save_dir)
+                                cmap_name, notes=f"{notes}{image_name}", overlay_alpha=overlay_alpha, save_dir=save_dir)
         return {"original_image_attention": rollout_image, "subimage_attention": subimage_roll, "subimage_position": subimage_positions}
