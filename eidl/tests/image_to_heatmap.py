@@ -3,8 +3,8 @@ import pickle
 import cv2
 import numpy as np
 
-image_path = r'C:\PycharmProjects\ExpertInformedDL\source_attention\Untitled.png'
-out_path = r'C:\PycharmProjects\ExpertInformedDL\source_attention\9025_OD_2021_widefield_report GCL Prob square .pickle'
+image_path = r'C:\PycharmProjects\ExpertInformedDL\source_attention\only green RLS_036_OS_TC.png'
+out_path = r'C:\PycharmProjects\ExpertInformedDL\source_attention\only green RLS_036_OS_TC.pickle'
 
 # load the image and convert it to grayscale and save as pickle
 image = cv2.imread(image_path)

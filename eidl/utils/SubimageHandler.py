@@ -88,8 +88,7 @@ class SubimageHandler:
         return image_data_dict
 
     def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
-                                     normalize_by_subimage=False, notes='',
-                                     *args, **kwargs):
+                                     normalize_by_subimage=False, notes='', *args, **kwargs):
         """
 
         Parameters
@@ -130,6 +129,10 @@ class SubimageHandler:
                 s_source_attention = source_attention[
                                      s_image['position'][0][1]:(s_image['position'][0][1] + s_image['image'].shape[1]),
                                      s_image['position'][0][0]:(s_image['position'][0][0] + s_image['image'].shape[2])]
+                # pad the source attention to the size of the subimage
+                s_source_attention = np.pad(s_source_attention, ((0, s_image['image'].shape[1] - s_source_attention.shape[0]),
+                                                                 (0, s_image['image'].shape[2] - s_source_attention.shape[1])),
+                                            mode='constant', constant_values=0)
                 # patchify the source attention
                 s_source_attention_patches = patchify(s_source_attention, patch_size)
                 s_source_attention_patches = s_source_attention_patches.reshape(s_source_attention_patches.shape[0], -1)
@@ -137,12 +140,22 @@ class SubimageHandler:
                 source_attention_patchified.append(s_source_attention_patches)
             source_attention_patchified = np.concatenate(source_attention_patchified)
             # compute the perceptual attention
+
+            # simple multiplication ##########################################
             attention = np.einsum('i,ij->j', source_attention_patchified, attention)
 
             # _attention = np.zeros(len(source_attention_patchified))
             # for i in range(len(source_attention_patchified)):
             #     _attention += source_attention_patchified[i] * attention[i, :]
             # attention = _attention
+
+            # bayesian inverse relation ##########################################
+            # attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
+            # attention = attention / (source_attention_patchified + 1e-6)
+            # attention = attention / np.max(attention)
+
+            # sum across the columns ##########################################
+            # attention = np.sum(attention, axis=0)
         else:
             attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
             # get the subimage attention from the source
