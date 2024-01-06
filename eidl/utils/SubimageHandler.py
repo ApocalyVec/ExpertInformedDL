@@ -170,7 +170,7 @@ class SubimageHandler:
                                                    subimage_masks=subimage_masks, subimages=subimages,
                                                    subimage_positions=subimage_positions, patch_size=patch_size,
                                                    **kwargs)
-        if is_plot_results is not None:
+        if is_plot_results:
             image_original = sample['original_image']
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
             # cmap_name = register_cmap_with_alpha('viridis')
