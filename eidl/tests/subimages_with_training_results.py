@@ -10,12 +10,13 @@ from eidl.utils.model_utils import get_best_model, parse_training_results, parse
 patch_size=(32, 32)
 data_path = 'C:/Dropbox/ExpertViT/Datasets/OCTData/oct_v2/oct_reports_info.p'
 # results_dir = 'results-01_05_2024_10_56_13'
-results_dir = 'results-01_03_2024_22_31_25'
-source_attention_path = r"C:\PycharmProjects\ExpertInformedDL\source_attention\GCL Prob RLS_036_OS_TC.pickle"
-figure_dir = 'figures_example/RLS_036_OS_TC'
+results_dir = '../temp/results-01_03_2024_22_31_25'
+source_attention_path = r"../temp/source_attention\GCL Prob RLS_036_OS_TC.pickle"
+figure_dir = '../temp/figures_example/RLS_036_OS_TC'
 
 # figure_notes = 'square depth 1'
-figure_notes = 'static aggregated-self discard 0.1 '
+# figure_notes = 'static aggregated-self discard 0.1 '
+figure_notes = 'test '
 if __name__ == '__main__':
     # load sample human attention ###################
     human_attention = pickle.load(open(source_attention_path, 'rb'))
@@ -42,7 +43,7 @@ if __name__ == '__main__':
     # torch.save(best_model, 'trained_model/0.0.2/best_model.pt')
     subimage_handler.model = best_model
 
-    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, save_dir=figure_dir, discard_ratio=0.1, notes=figure_notes)
+    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, save_dir=figure_dir, discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True)
     # subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', save_dir=figure_dir, discard_ratio=0.1, notes=figure_notes)
     # subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', source_attention=human_attention, save_dir='figures_example', discard_ratio=0.7,notes=figure_notes)
     # subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', save_dir='figures_example', discard_ratio=0.1,notes=figure_notes)

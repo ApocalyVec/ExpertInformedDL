@@ -47,11 +47,17 @@ def plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_std,
 
         # plot the aoi and subimage side by side, using subplot
         s_fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-        plt.subplot(1, 2, 1)
+
+        plt.subplot(1, 3, 1)
+        plt.imshow(s_image_unznormed, cmap=cmap_name)
+        plt.imshow(s_roll, cmap=cmap_name, alpha=overlay_alpha * s_roll / np.max(s_roll))
+        plt.axis('off')
+
+        plt.subplot(1, 3, 2)
         plt.imshow(s_image_unznormed)
         plt.axis('off')
 
-        plt.subplot(1, 2, 2)
+        plt.subplot(1, 3, 3)
         plt.imshow(s_roll, cmap=cmap_name)
         plt.colorbar()
         plt.axis('off')
@@ -63,30 +69,30 @@ def plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_std,
         else:
             plt.show()
 
-def plot_image_attention(image_original, attention, aoi_heatmap, cmap_name, overlay_alpha=0.75, save_dir=None, notes=''):
+def plot_image_attention(image_original, model_attention, source_attention, cmap_name, overlay_alpha=0.9, save_dir=None, notes=''):
     fig = plt.figure(figsize=(30, 20), constrained_layout=True)
 
     plt.subplot(2, 2, 1)
     plt.imshow(image_original)  # plot the original image
-    if aoi_heatmap is not None:
-        plt.imshow(aoi_heatmap, cmap=cmap_name, alpha=overlay_alpha)
+    if source_attention is not None:
+        plt.imshow(source_attention, cmap=cmap_name, alpha=overlay_alpha * source_attention / np.max(source_attention))
     plt.axis('off')
     plt.title("Source Attention Overlay")
 
-    if aoi_heatmap is not None:
+    if source_attention is not None:
         plt.subplot(2, 2, 3)
-        plt.imshow(aoi_heatmap, cmap=cmap_name, alpha=overlay_alpha)
+        plt.imshow(source_attention, cmap=cmap_name)
         plt.axis('off')
         plt.title("Source Attention")
 
     plt.subplot(2, 2, 2)
     plt.imshow(image_original)  # plot the original image
-    plt.imshow(attention, cmap=cmap_name, alpha=overlay_alpha)
+    plt.imshow(model_attention, cmap=cmap_name, alpha=overlay_alpha * model_attention / np.max(model_attention))
     plt.axis('off')
     plt.title("Model Attention Overlay")
 
     plt.subplot(2, 2, 4)
-    plt.imshow(attention, cmap=cmap_name, alpha=overlay_alpha)
+    plt.imshow(model_attention, cmap=cmap_name)
     plt.axis('off')
     plt.title("Model Attention")
 

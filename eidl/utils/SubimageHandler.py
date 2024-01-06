@@ -88,7 +88,7 @@ class SubimageHandler:
         return image_data_dict
 
     def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
-                                     normalize_by_subimage=False, notes='', *args, **kwargs):
+                                     notes='', *args, **kwargs):
         """
 
         Parameters
@@ -162,13 +162,14 @@ class SubimageHandler:
         rollout_image, subimage_roll = process_aoi(attention, image_original_size, True,
                                                    grid_size=self.model.get_grid_size(),
                                                    subimage_masks=subimage_masks, subimages=subimages,
-                                                   subimage_positions=subimage_positions, patch_size=patch_size)
+                                                   subimage_positions=subimage_positions, patch_size=patch_size,
+                                                   **kwargs)
         if is_plot_results is not None:
             image_original = sample['original_image']
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
             cmap_name = register_cmap_with_alpha('viridis')
-            plot_image_attention(image_original, rollout_image, source_attention, cmap_name,
+            plot_image_attention(image_original, rollout_image, source_attention, 'plasma',
                                  notes=f'{notes}{image_name}', overlay_alpha=overlay_alpha, save_dir=save_dir)
             plot_subimage_rolls(subimage_roll, subimages, subimage_positions, self.subimage_std, self.subimage_mean,
-                                cmap_name, notes=f"{notes}{image_name}", overlay_alpha=overlay_alpha, save_dir=save_dir)
+                                'plasma', notes=f"{notes}{image_name}", overlay_alpha=overlay_alpha, save_dir=save_dir)
         return {"original_image_attention": rollout_image, "subimage_attention": subimage_roll, "subimage_position": subimage_positions}
