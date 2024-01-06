@@ -58,11 +58,11 @@ def rollout(depth, grid_size, attentions, discard_ratio, head_fusion, normalize=
 
     if not return_raw_attention:
         result = result[0, 0, 1:]  # Look at the total attention between the class token, # and the image patches
-    mask = result.numpy()
+    else:
+        result = result[0]
     if normalize:
-        mask = mask / np.max(mask)
-    return mask
-
+        result = result / torch.max(result)
+    return result.numpy()
 
 class VITAttentionRollout:
     def __init__(self, model, device, attention_layer_name='attn_drop', head_fusion="mean",

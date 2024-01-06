@@ -19,6 +19,7 @@ class SubimageHandler:
         self.subimage_std = None
         self.image_data_dict = None
         self.model = None
+        self.attention_cache = {}  # holds the attention for each image, so that it does not have to be recomputed
 
 
     def load_image_data(self, image_data_dict, *args, **kwargs):
@@ -88,7 +89,7 @@ class SubimageHandler:
         return image_data_dict
 
     def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
-                                     notes='', *args, **kwargs):
+                                     notes='', discard_ratio=0.9, *args, **kwargs):
         """
 
         Parameters
@@ -120,10 +121,15 @@ class SubimageHandler:
         subimages = [x[0].detach().cpu().numpy() for x in image['subimages']]  # the subimages in a single image
         subimage_positions = [x['position'] for x in sample['sub_images']]
 
-        vit_rollout = VITAttentionRollout(self.model, device=device, attention_layer_name='attn_drop', *args, **kwargs)
+        if (image_name, discard_ratio) in self.attention_cache.keys():
+            attention = self.attention_cache[(image_name, discard_ratio)]
+        else:
+            vit_rollout = VITAttentionRollout(self.model, device=device, attention_layer_name='attn_drop', discard_ratio=discard_ratio, *args, **kwargs)
+            attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None, return_raw_attention=True)
+            self.attention_cache[(image_name, discard_ratio)] = attention
 
         if source_attention is not None:
-            attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None, normalize=True, return_raw_attention=True)[0, 1:, 1:]
+            attention = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
             source_attention_patchified = []
             for s_image in sample['sub_images']:
                 s_source_attention = source_attention[
@@ -156,9 +162,9 @@ class SubimageHandler:
 
             # sum across the columns ##########################################
             # attention = np.sum(attention, axis=0)
-        else:
-            attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
             # get the subimage attention from the source
+        else:
+            attention = attention[0, 1:]  # get the attention from the class token to the subimages
         rollout_image, subimage_roll = process_aoi(attention, image_original_size, True,
                                                    grid_size=self.model.get_grid_size(),
                                                    subimage_masks=subimage_masks, subimages=subimages,
@@ -167,7 +173,7 @@ class SubimageHandler:
         if is_plot_results is not None:
             image_original = sample['original_image']
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
-            cmap_name = register_cmap_with_alpha('viridis')
+            # cmap_name = register_cmap_with_alpha('viridis')
             plot_image_attention(image_original, rollout_image, source_attention, 'plasma',
                                  notes=f'{notes}{image_name}', overlay_alpha=overlay_alpha, save_dir=save_dir)
             plot_subimage_rolls(subimage_roll, subimages, subimage_positions, self.subimage_std, self.subimage_mean,

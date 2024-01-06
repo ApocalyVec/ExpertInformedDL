@@ -43,7 +43,8 @@ if __name__ == '__main__':
     # torch.save(best_model, 'trained_model/0.0.2/best_model.pt')
     subimage_handler.model = best_model
 
-    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, save_dir=figure_dir, discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True)
+    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True)
+    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True)
     # subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', save_dir=figure_dir, discard_ratio=0.1, notes=figure_notes)
     # subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', source_attention=human_attention, save_dir='figures_example', discard_ratio=0.7,notes=figure_notes)
     # subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', save_dir='figures_example', discard_ratio=0.1,notes=figure_notes)
