@@ -388,7 +388,8 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
         print( f"Fold {f_index}, val images has {[(unique_l, np.sum(np.array([img_l for img_l in train_val_image_labels[val_image_indices]]) == unique_l)) for unique_l in unique_labels]} labels")
 
         folds.append([OCTDatasetV3(train_trials, is_unique_images=False, compound_label_encoder=compound_label_encoder),
-                      OCTDatasetV3(val_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)])
+                      OCTDatasetV3(val_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder),
+                      OCTDatasetV3(train_trials, is_unique_images=True, compound_label_encoder=compound_label_encoder)])
     return folds, test_dataset, image_stats
 
 

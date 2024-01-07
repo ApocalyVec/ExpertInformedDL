@@ -234,12 +234,16 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
                 classification_loss = criterion(weight=class_weights)(output, y_tensor)
             else:
                 classification_loss = criterion()(output, y_tensor)
-            if dist == 'cross-entropy':
-                attention_loss = alpha * F.cross_entropy(attention, aoi_heatmap.to(device))
-            elif dist == 'Wasserstein':
-                attention_loss = alpha * torch_wasserstein_loss(attention, aoi_heatmap.to(device))
+
+            if alpha is not None:
+                if dist == 'cross-entropy':
+                    attention_loss = alpha * F.cross_entropy(attention, aoi_heatmap.to(device))
+                elif dist == 'Wasserstein':
+                    attention_loss = alpha * torch_wasserstein_loss(attention, aoi_heatmap.to(device))
+                else:
+                    raise NotImplementedError(f" Loss type {dist} is not implemented")
             else:
-                raise NotImplementedError(f" Loss type {dist} is not implemented")
+                attention_loss = 0.
 
             if l2_weight:
                 l2_penalty = l2_weight * sum([(p ** 2).sum() for p in model.parameters()])

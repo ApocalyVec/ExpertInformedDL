@@ -12,6 +12,7 @@ from eidl.Models.ExpertAttentionViT import ViT_LSTM
 from eidl.Models.ExpertAttentionViTSubImages import ViT_LSTM_subimage
 from eidl.Models.ExpertTimmVisionTransformer import ExpertTimmVisionTransformer
 from eidl.Models.ExpertTimmVisionTransformerSubimage import ExpertTimmVisionTransformerSubimage
+from eidl.Models.ExtensionModel import ExtensionModelSubimage
 from eidl.utils.image_utils import load_oct_image
 from eidl.utils.iter_utils import reverse_tuple, chunker
 
@@ -37,6 +38,7 @@ def get_model(model_name, image_size, depth, device, *args, **kwargs):
         model = ExpertTimmVisionTransformerSubimage(model).to(device)
     elif model_name == 'InceptionV4_subimage':
         model = timm.create_model(model_name.strip('_subimage'),  pretrained=True, dynamic_img_size=True, features_only=True)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
+        model = ExtensionModelSubimage(model, num_classes=2).to(device)
     else:
         raise ValueError(f"model name {model_name} is not supported")
     return model, model.get_grid_size()

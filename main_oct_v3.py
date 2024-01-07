@@ -27,9 +27,11 @@ from eidl.utils.training_utils import train_oct_model, get_class_weight
 data_root = r'C:\Users\apoca_vpmhq3c\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
 
 cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info.p'
-results_dir = 'results'
+# results_dir = 'results'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
-use_saved_folds = None
+
+results_dir = '../temp/results'
+use_saved_folds = '../temp/results-01_07_2024_10_53_56'
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
@@ -65,9 +67,9 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-# model_names = 'vit_small_patch32_224_in21k_subimage',
+model_names = 'vit_small_patch32_224_in21k_subimage',
 # model_names = 'base_subimage',
-model_names = 'inception_v4_subimage'
+# model_names = 'inception_v4_subimage'
 
 ################################################################
 image_size = 1024, 512
@@ -89,6 +91,7 @@ if __name__ == '__main__':
         test_dataset = pickle.load(open(os.path.join(use_saved_folds, 'test_dataset.p'), 'rb'))
         image_stats = pickle.load(open(os.path.join(use_saved_folds, 'image_stats.p'), 'rb'))
         test_dataset.compound_label_encoder = pickle.load(open(os.path.join(use_saved_folds, 'compound_label_encoder.p'), 'rb'))
+        results_dir = use_saved_folds
     else:
         now = datetime.now()
         dt_string = now.strftime("%m_%d_%Y_%H_%M_%S")
@@ -109,13 +112,9 @@ if __name__ == '__main__':
         pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
         pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
 
-    train_dataset, valid_dataset = folds[0]  # TODO using only one fold for now
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    train_trial_dataset, valid_dataset, train_unique_img_dataset = folds[0]  # TODO using only one fold for now
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
-    class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
     # save the data loader # TODO use test and save folds in the future
 
     parameters = set()
@@ -126,20 +125,33 @@ if __name__ == '__main__':
         else:
             this_lr = lr
             this_depth = depth
+        if 'inception' in model_name:  # inception net doesn't have depth and alpha
+            this_params = (model_name, None, None, None, this_lr)
+        else:
+            this_params = (model_name, this_depth, alpha, aoi_loss_dist, this_lr)
         parameters.add((this_depth, alpha, model_name, this_lr, aoi_loss_dist))
 
     for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
-        depth, alpha, model_name, lr, aoi_loss_dist = parameter
+        model_name, depth, alpha, aoi_loss_dist, lr = parameter
         model, grid_size = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
         model_config_string = f'model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_depth-{model.depth}_lr-{lr}'
         print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
 
+        if 'inception' in model_name:
+            train_dataset = train_unique_img_dataset
+        else:
+            train_dataset = train_trial_dataset
         train_dataset.create_aoi(grid_size=grid_size, use_subimages=True)
         valid_dataset.create_aoi(grid_size=grid_size, use_subimages=True)
 
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+        class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
 
+        optimizer = optim.Adam(model.parameters(), lr=lr)
         criterion = nn.CrossEntropyLoss()
+
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+
         train_loss_list, train_acc_list, valid_loss_list, valid_acc_list = train_oct_model(
             model, model_config_string, train_loader, valid_loader, results_dir=results_dir, optimizer=optimizer, num_epochs=epochs,
             alpha=alpha, dist=aoi_loss_dist, l2_weight=None, class_weights=class_weights)
