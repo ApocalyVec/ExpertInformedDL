@@ -1,8 +1,16 @@
+import numpy as np
 import torch
 from torch import nn
 from timm.models.vision_transformer import VisionTransformer, Block, Attention
+from einops import rearrange, repeat
+from einops.layers.torch import Rearrange
 
-class ExpertTimmVisionTransformer(nn.Module):
+
+
+from eidl.Models.ExtensionModels import ExpertTimmViTBlock
+
+
+class ExpertTimmVisionTransformerSubimage(nn.Module):
     def __init__(self, vision_transformer: VisionTransformer, num_dim_fixation=2, num_lstm_layers=2, rnn_hidden_dim=64, fixation_conditioned=True):
         """
         Composite class extending the VisionTransformer from timm
@@ -37,8 +45,19 @@ class ExpertTimmVisionTransformer(nn.Module):
         else:
             self.vision_transformer.head = self.head = nn.Linear(self.vision_transformer.embed_dim, self.num_classes) if self.num_classes > 0 else nn.Identity()
 
+        # self.to_patch_embedding = nn.Sequential(
+        #     Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=self.vision_transformer.patch_embed.patch_size[0], p2=self.vision_transformer.patch_embed.patch_size[1]),
+        #     nn.Linear(np.prod(self.vision_transformer.patch_embed.patch_size) * 3, self.vision_transformer.embed_dim),  # times three for color channels
+        # )
+
+
     def forward_features(self, img, collapse_attention_matrix=True, *args, **kwargs):
-        x = self.vision_transformer.patch_embed(img)
+        subimage_xs = [self.vision_transformer.patch_embed(x) for x in img['subimages']]
+        subimage_xs = [rearrange(x, 'b h w d -> b (h w) d') for x in subimage_xs]
+        x = torch.cat(subimage_xs, dim=1)
+        # recover a dummy w dimension for the _pos_embed in timm
+        x = rearrange(x, 'b (h w) d -> b h w d', w=1)
+
         x = self.vision_transformer._pos_embed(x)
         x = self.vision_transformer.norm_pre(x)
         # if self.grad_checkpointing and not torch.jit.is_scripting():
@@ -54,11 +73,13 @@ class ExpertTimmVisionTransformer(nn.Module):
             raise ValueError("the attention activation in forward_features is none, check your depth parameter")
         return x, attention
 
-    def forward(self, img, fixation_sequence):
+    def forward(self, img, fixation_sequence, collapse_attention_matrix=True, *args, **kwargs):
         x, attention = self.forward_features(img)
-        attention = attention[:, :, 1:, 1:]
-        attention = attention / torch.sum(attention, dim=3, keepdim=True)
-        attention = torch.sum(attention, dim=2)
+
+        if collapse_attention_matrix:
+            attention = attention[:, :, 1:, 1:]
+            attention = attention / torch.sum(attention, dim=3, keepdim=True)
+            attention = torch.sum(attention, dim=2)
 
         x = self.vision_transformer.forward_head(x, pre_logits=True)  # set pre_logits to true, don't apply the classification head
         if self.fixation_conditioned:
@@ -72,35 +93,3 @@ class ExpertTimmVisionTransformer(nn.Module):
         return self.vision_transformer.patch_embed.grid_size
 
     # TODO add test function, without fixation sequence as in ExpertAttentionViT.test()
-
-class ExpertTimmViTBlock(nn.Module):
-    def __init__(self, block: Block):
-        super().__init__()
-        self.block = block
-        self.attn = ExpertTimmViTAttention(self.block.attn)
-        self.attention = None
-
-    def forward(self, x):
-        x, self.attention = self.attn(x)
-        x = x + self.block.drop_path1(self.block.norm1(x))
-        x = x + self.block.drop_path2(self.block.norm2(self.block.mlp(x)))
-        return x
-
-class ExpertTimmViTAttention(nn.Module):
-    def __init__(self, attention: Attention):
-        super().__init__()
-        self.attention = attention
-
-    def forward(self, x):
-        B, N, C = x.shape
-        qkv = self.attention.qkv(x).reshape(B, N, 3, self.attention.num_heads, C // self.attention.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv.unbind(0)   # make torchscript happy (cannot use tensor as tuple)
-
-        attn = (q @ k.transpose(-2, -1)) * self.attention.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attention.attn_drop(attn)
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        x = self.attention.proj(x)
-        x = self.attention.proj_drop(x)
-        return x, attn

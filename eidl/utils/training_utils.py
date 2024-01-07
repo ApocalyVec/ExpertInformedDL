@@ -249,11 +249,13 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
 
         # update the weights #################################################################
         if mode == 'train':
-            with autograd.detect_anomaly():
-                try:
-                    loss.backward()
-                except Exception as e:
-                    print(f"Bad gradient encountered: {e}")
+            loss.backward()
+
+            # with autograd.detect_anomaly():
+            #     try:
+            #         loss.backward()
+            #     except Exception as e:
+            #         print(f"Bad gradient encountered: {e}")
             grad_norms.append([torch.mean(param.grad.norm()).item() for _, param in model.named_parameters() if param.grad is not None])
 
             # nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0, norm_type=2)

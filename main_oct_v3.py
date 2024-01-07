@@ -26,19 +26,20 @@ from eidl.utils.training_utils import train_oct_model, get_class_weight
 data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
 cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info.p'
 results_dir = 'results'
+use_saved_folds = 'results-01_07_2024_10_53_56'
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 100
+epochs = 1
 random_seed = 42
-batch_size = 8
+batch_size = 2
 folds = 3
 
 # grid search hyper-parameters ##################################
 ################################################################
 # depths = 1, 3
-depths = 2,
+depths = 1,
 
 ################################################################
 # alphas = 0.0, 1e-2, 0.1, 0.25, 0.5, 0.75, 1.0
@@ -61,8 +62,8 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-# model_names = 'vit_small_patch32_224_in21k',
-model_names = 'base_subimage',
+model_names = 'subimage_vit_small_patch32_224_in21k',
+# model_names = 'base_subimage',
 
 ################################################################
 image_size = 1024, 512
@@ -78,24 +79,31 @@ if __name__ == '__main__':
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
 
-    now = datetime.now()
-    dt_string = now.strftime("%m_%d_%Y_%H_%M_%S")
-    results_dir = f"{results_dir}-{dt_string}"
-    if not os.path.isdir(results_dir):
-        os.mkdir(results_dir)
-        print(f"Results will be save to {results_dir}")
+    if use_saved_folds:
+        print(f"Using saved folds from {use_saved_folds}")
+        folds = pickle.load(open(os.path.join(use_saved_folds, 'folds.p'), 'rb'))
+        test_dataset = pickle.load(open(os.path.join(use_saved_folds, 'test_dataset.p'), 'rb'))
+        image_stats = pickle.load(open(os.path.join(use_saved_folds, 'image_stats.p'), 'rb'))
+        test_dataset.compound_label_encoder = pickle.load(open(os.path.join(use_saved_folds, 'compound_label_encoder.p'), 'rb'))
     else:
-        print(f"Results exist in {results_dir}, overwritting the results")
+        now = datetime.now()
+        dt_string = now.strftime("%m_%d_%Y_%H_%M_%S")
+        results_dir = f"{results_dir}-{dt_string}"
+        if not os.path.isdir(results_dir):
+            os.mkdir(results_dir)
+            print(f"Results will be save to {results_dir}")
+        else:
+            print(f"Results exist in {results_dir}, overwritting the results")
 
-    # TODO train and test should use the same std and mean to normalize, moreover train and test should splitted during run time
-    print("Creating data set")
-    folds, test_dataset, image_stats = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs,
-                                                                                cropped_image_data_path=cropped_image_data_path,
-                                                                                patch_size=patch_size, gaussian_smear_sigma=gaussian_smear_sigma)
-    pickle.dump(folds, open(os.path.join(results_dir, 'folds.p'), 'wb'))
-    pickle.dump(test_dataset, open(os.path.join(results_dir, 'test_dataset.p'), 'wb'))
-    pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
-    pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
+        # TODO train and test should use the same std and mean to normalize, moreover train and test should splitted during run time
+        print("Creating data set")
+        folds, test_dataset, image_stats = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs,
+                                                                                    cropped_image_data_path=cropped_image_data_path,
+                                                                                    patch_size=patch_size, gaussian_smear_sigma=gaussian_smear_sigma)
+        pickle.dump(folds, open(os.path.join(results_dir, 'folds.p'), 'wb'))
+        pickle.dump(test_dataset, open(os.path.join(results_dir, 'test_dataset.p'), 'wb'))
+        pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
+        pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
 
     train_dataset, valid_dataset = folds[0]  # TODO using only one fold for now
 
