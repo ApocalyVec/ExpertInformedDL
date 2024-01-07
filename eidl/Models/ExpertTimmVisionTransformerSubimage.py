@@ -7,7 +7,7 @@ from einops.layers.torch import Rearrange
 
 
 
-from eidl.Models.ExtensionModels import ExpertTimmViTBlock
+from eidl.Models.ExpertTimmVisionTransformer import ExpertTimmViTBlock
 
 
 class ExpertTimmVisionTransformerSubimage(nn.Module):

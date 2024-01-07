@@ -16,17 +16,20 @@ from torch.utils.data import DataLoader
 
 from eidl.datasets.OCTDataset import get_oct_test_train_val_folds
 from eidl.utils.iter_utils import collate_fn
-from eidl.utils.model_utils import get_vit_model
+from eidl.utils.model_utils import get_model
 from eidl.utils.training_utils import train_oct_model, get_class_weight
 
 # User parameters ##################################################################################
 
 # Change the following to the file path on your system #########
 # data_root = 'D:/Dropbox/Dropbox/ExpertViT/Datasets/OCTData/oct_v2'
-data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
+# data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
+data_root = r'C:\Users\apoca_vpmhq3c\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
+
 cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info.p'
 results_dir = 'results'
-use_saved_folds = 'results-01_07_2024_10_53_56'
+# use_saved_folds = 'results-01_07_2024_10_53_56'
+use_saved_folds = None
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
@@ -62,8 +65,9 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-model_names = 'subimage_vit_small_patch32_224_in21k',
+# model_names = 'vit_small_patch32_224_in21k_subimage',
 # model_names = 'base_subimage',
+model_names = 'inception_v4_subimage'
 
 ################################################################
 image_size = 1024, 512
@@ -126,7 +130,7 @@ if __name__ == '__main__':
 
     for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
         depth, alpha, model_name, lr, aoi_loss_dist = parameter
-        model, grid_size = get_vit_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
+        model, grid_size = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
         model_config_string = f'model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_depth-{model.depth}_lr-{lr}'
         print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
 

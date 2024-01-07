@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from eidl.datasets.OCTDataset import get_oct_test_train_val_folds
 from eidl.utils.iter_utils import collate_fn
-from eidl.utils.model_utils import get_vit_model
+from eidl.utils.model_utils import get_model
 from eidl.utils.training_utils import train_oct_model
 
 # User parameters ##################################################################################
@@ -106,7 +106,7 @@ if __name__ == '__main__':
 
     for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
         depth, alpha, model_name, lr, aoi_loss_dist = parameter
-        model, grid_size = get_vit_model(model_name, image_size=image_size, depth=depth, device=device)
+        model, grid_size = get_model(model_name, image_size=image_size, depth=depth, device=device)
         model_config_string = f'model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_depth-{model.depth}_lr-{lr}'
         print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
 
