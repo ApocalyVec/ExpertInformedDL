@@ -1,4 +1,5 @@
 import itertools
+import warnings
 from multiprocessing import Pool
 
 import PIL
@@ -261,7 +262,10 @@ def remap_subimage_aoi(subimage_patch_aoi, subimage_masks, subimages, subimage_p
         s_aoi = s_aoi[:s_image_size[0], :s_image_size[1]]  # if the image is padded, this also remove the attention from the padded area
 
         if normalize_by_subimage:
-            s_aoi = s_aoi / np.max(s_aoi)
+            if np.max(s_aoi) > 0:
+                s_aoi = s_aoi / np.max(s_aoi)
+            else:
+                warnings.warn(f"subimage {s_image} has no attention: zero division encounter when normalizing the attention. Nothing will be done to the attention.")
         aoi_recovered[s_pos[0][1]:min(s_pos[2][1], s_pos[0][1] + s_image_size_cropped_or_padded[0]),  # the min is dealing with the cropped case
                       s_pos[0][0]:min(s_pos[2][0], s_pos[0][0] + s_image_size_cropped_or_padded[1])] += s_aoi
         sub_image_aois.append(s_aoi)
