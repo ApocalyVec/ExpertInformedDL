@@ -49,16 +49,23 @@ class ExpertTimmVisionTransformerSubimage(nn.Module):
         #     Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=self.vision_transformer.patch_embed.patch_size[0], p2=self.vision_transformer.patch_embed.patch_size[1]),
         #     nn.Linear(np.prod(self.vision_transformer.patch_embed.patch_size) * 3, self.vision_transformer.embed_dim),  # times three for color channels
         # )
+        self.mask_token = nn.Parameter(torch.zeros(self.vision_transformer.embed_dim))
 
 
     def forward_features(self, img, collapse_attention_matrix=True, *args, **kwargs):
         subimage_xs = [self.vision_transformer.patch_embed(x) for x in img['subimages']]
         subimage_xs = [rearrange(x, 'b h w d -> b (h w) d') for x in subimage_xs]
+
+        # concate the masks
+        masks = torch.cat([rearrange(x, 'b h w -> b (h w)') for x in img['masks']], dim=1)
         x = torch.cat(subimage_xs, dim=1)
+        # apply the mask token
+        x[masks] = self.mask_token
+
         # recover a dummy w dimension for the _pos_embed in timm
         x = rearrange(x, 'b (h w) d -> b h w d', w=1)
 
-        x = self.vision_transformer._pos_embed(x)
+        x = self.vision_transformer._pos_embed(x)  # TODO use a pos embedding in this class, not rely on dynamic image size in TIMM
         x = self.vision_transformer.norm_pre(x)
         # if self.grad_checkpointing and not torch.jit.is_scripting():
         #     x = checkpoint_seq(self.blocks, x)

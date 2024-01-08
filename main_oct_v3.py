@@ -71,6 +71,29 @@ model_names = 'vit_small_patch32_224_in21k_subimage',
 # model_names = 'base_subimage',
 # model_names = 'inception_v4_subimage'
 
+grid_search_params = {
+    'vit_small_patch32_224_in21k_subimage': {
+        'alphas': 1e-2,
+        'lrs': 1e-3,
+        'aoi_loss_distance_types': 'cross-entropy',
+        'optimizer': optim.SGD,
+    },
+
+    'base_subimage': {
+        'alphas': 1e-2,
+        'lrs': 1e-3,
+        'aoi_loss_distance_types': 'cross-entropy',
+        'depths': 1,
+        'optimizer': optim.Adam,},
+
+    'inception_v4_subimage': {
+        'lrs': 1e-3,
+        'optimizer': optim.SGD,
+    }
+}
+
+
+
 ################################################################
 image_size = 1024, 512
 patch_size = 32, 32
@@ -113,7 +136,11 @@ if __name__ == '__main__':
     train_trial_dataset, valid_dataset, train_unique_img_dataset = folds[0]  # TODO using only one fold for now
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)  # TODO use the test loader in the future
 
+    # process the grid search parameters
     parameters = set()
+    # for model, grid_search_params
+
+
     for depth, alpha, model_name, lr, aoi_loss_dist in itertools.product(depths, alphas, model_names, lrs, aoi_loss_distance_types):
         # if model_name == 'pretrained':
         #     this_lr = lr * non_pretrained_lr_scaling
@@ -142,7 +169,8 @@ if __name__ == '__main__':
 
         class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
 
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+        # optimizer = optim.Adam(model.parameters(), lr=lr)
+        optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.CrossEntropyLoss()
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
