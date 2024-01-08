@@ -189,7 +189,7 @@ def train(model, optimizer: torch.optim.Optimizer, train_data_loader, val_data_l
 #         return epoch_loss, epoch_acc
 
 def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, class_weights, model_config_string, criterion,
-                      dist, alpha, l2_weight, *args, **kwargs):
+                      dist, alpha, l2_weight, epoch_i, *args, **kwargs):
     if mode == 'train':
         model.train()
     elif mode == 'val':
@@ -277,7 +277,7 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
         total_samples += (predictions.size(0))
         total_loss += loss.item() * len(batch[0])
         total_correct += torch.sum(predictions == label_encoded.to(device)).item()
-        pbar.set_description('Training [{}]: loss:{:.8f}, with classification loss {:.8f}, with attention loss {:.8f}'.format(mini_batch_i, loss.item(), classification_loss.item(), attention_loss.item()))
+        pbar.set_description('Training Epoch-[{}]  Batch-[{}]: loss:{:.8f}, with classification loss {:.8f}, with attention loss {:.8f}'.format(epoch_i, mini_batch_i, loss.item(), classification_loss.item(), attention_loss.item()))
 
     epoch_loss = total_loss / total_samples
     epoch_acc = (total_correct / total_samples)
@@ -300,11 +300,11 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, resu
         print('epoch:{:d} / {:d}'.format(epoch, num_epochs))
         print('*' * 100)
         train_loss, train_acc = run_one_epoch_oct('train', model, train_loader, device=device, model_config_string=model_config_string, criterion=criterion,
-                                                dist=dist, alpha=alpha, l2_weight=l2_weight, *args, **kwargs)
+                                                dist=dist, alpha=alpha, l2_weight=l2_weight, epoch_i=epoch, *args, **kwargs)
         train_loss_list.append(train_loss)
         train_acc_list.append(train_acc)
         valid_loss, valid_acc = run_one_epoch_oct('val', model, valid_loader, device=device, model_config_string=model_config_string, criterion=criterion,
-                                                  dist=dist, alpha=alpha, l2_weight=l2_weight, *args, **kwargs)
+                                                  dist=dist, alpha=alpha, l2_weight=l2_weight, epoch_i=epoch,*args, **kwargs)
         valid_loss_list.append(valid_loss)
         valid_acc_list.append(valid_acc)
         print("training loss: {:.4f}, training acc: {:.4f}; validation loss {:.4f}, validation acc: {:.4f}".format(train_loss, train_acc, valid_loss, valid_acc))

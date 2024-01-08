@@ -56,7 +56,7 @@ alphas = 1e-2,
 # lrs = 1e-2, 1e-3, 1e-4
 # lrs = 1e-4, 1e-5
 # lrs = 1e-4,
-lrs = 1e-4,
+lrs = 1e-3,
 
 non_pretrained_lr_scaling = 1e-2
 
@@ -115,12 +115,12 @@ if __name__ == '__main__':
 
     parameters = set()
     for depth, alpha, model_name, lr, aoi_loss_dist in itertools.product(depths, alphas, model_names, lrs, aoi_loss_distance_types):
-        if model_name == 'pretrained':
-            this_lr = lr * non_pretrained_lr_scaling
-            this_depth = None  # depth does not affect the pretrained model
-        else:
-            this_lr = lr
-            this_depth = depth
+        # if model_name == 'pretrained':
+        #     this_lr = lr * non_pretrained_lr_scaling
+        #     this_depth = None  # depth does not affect the pretrained model
+        # else:
+        this_lr = lr
+        this_depth = depth
         if 'inception' in model_name:  # inception net doesn't have depth and alpha
             this_params = (model_name, None, None, None, this_lr)
         else:
