@@ -165,6 +165,8 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
         test_dataset.create_aoi(best_model.get_grid_size())
         # epoch_loss, epoch_acc = run_validation(best_model, test_loader, device)
         # print(f"Test acc: {epoch_acc}")
+
+        # use gradcam is model is not a ViT
         vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.1)
         sample_count = 0
 

@@ -1,6 +1,6 @@
 from eidl.viz.viz_oct_results import viz_oct_results
 
-results_dir = 'results-01_03_2024_22_31_25'
+results_dir = '../temp/results-01_07_2024_10_53_56'
 
 batch_size = 8
 

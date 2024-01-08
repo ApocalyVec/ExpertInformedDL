@@ -23,20 +23,20 @@ from eidl.utils.training_utils import train_oct_model, get_class_weight
 
 # Change the following to the file path on your system #########
 # data_root = 'D:/Dropbox/Dropbox/ExpertViT/Datasets/OCTData/oct_v2'
-# data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
-data_root = r'C:\Users\apoca_vpmhq3c\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
+data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
+# data_root = r'C:\Users\apoca_vpmhq3c\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
 
 cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info.p'
 # results_dir = 'results'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
 results_dir = '../temp/results'
-use_saved_folds = '../temp/results-01_07_2024_10_53_56'
+use_saved_folds = '../temp/results-01_07_2024_15_13_23'
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 1
+epochs = 15
 random_seed = 42
 batch_size = 2
 folds = 3
@@ -93,6 +93,10 @@ if __name__ == '__main__':
         test_dataset.compound_label_encoder = pickle.load(open(os.path.join(use_saved_folds, 'compound_label_encoder.p'), 'rb'))
         results_dir = use_saved_folds
     else:
+        print("Creating data set")
+        folds, test_dataset, image_stats = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs,
+                                                                                    cropped_image_data_path=cropped_image_data_path,
+                                                                                    patch_size=patch_size, gaussian_smear_sigma=gaussian_smear_sigma)
         now = datetime.now()
         dt_string = now.strftime("%m_%d_%Y_%H_%M_%S")
         results_dir = f"{results_dir}-{dt_string}"
@@ -101,21 +105,13 @@ if __name__ == '__main__':
             print(f"Results will be save to {results_dir}")
         else:
             print(f"Results exist in {results_dir}, overwritting the results")
-
-        # TODO train and test should use the same std and mean to normalize, moreover train and test should splitted during run time
-        print("Creating data set")
-        folds, test_dataset, image_stats = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs,
-                                                                                    cropped_image_data_path=cropped_image_data_path,
-                                                                                    patch_size=patch_size, gaussian_smear_sigma=gaussian_smear_sigma)
         pickle.dump(folds, open(os.path.join(results_dir, 'folds.p'), 'wb'))
         pickle.dump(test_dataset, open(os.path.join(results_dir, 'test_dataset.p'), 'wb'))
         pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
         pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
 
     train_trial_dataset, valid_dataset, train_unique_img_dataset = folds[0]  # TODO using only one fold for now
-    # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-
-    # save the data loader # TODO use test and save folds in the future
+    # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)  # TODO use the test loader in the future
 
     parameters = set()
     for depth, alpha, model_name, lr, aoi_loss_dist in itertools.product(depths, alphas, model_names, lrs, aoi_loss_distance_types):
@@ -129,7 +125,7 @@ if __name__ == '__main__':
             this_params = (model_name, None, None, None, this_lr)
         else:
             this_params = (model_name, this_depth, alpha, aoi_loss_dist, this_lr)
-        parameters.add((this_depth, alpha, model_name, this_lr, aoi_loss_dist))
+        parameters.add(this_params)
 
     for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
         model_name, depth, alpha, aoi_loss_dist, lr = parameter
