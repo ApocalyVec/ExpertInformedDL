@@ -148,6 +148,8 @@ class SubimageHandler:
             # compute the perceptual attention
 
             # simple multiplication ##########################################
+            # zero out the diagonal of the attention
+            attention = attention * (1 - np.eye(len(attention)))
             attention = np.einsum('i,ij->j', source_attention_patchified, attention)
 
             # _attention = np.zeros(len(source_attention_patchified))

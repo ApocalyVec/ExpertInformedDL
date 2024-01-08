@@ -81,7 +81,7 @@ grid_search_params = {
 
     'base_subimage': {
         'alphas': 1e-2,
-        'lrs': 1e-3,
+        'lrs': 1e-4,
         'aoi_loss_distance_types': 'cross-entropy',
         'depths': 1,
         'optimizer': optim.Adam,},

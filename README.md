@@ -21,7 +21,7 @@ subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', i
 ```
 
 
-### If you don't want to use subiamges:
+### If you don't want to use subimages:
 
 Check out eidl/examples/example.py for a simple example of how to use the trained model for inference.
 

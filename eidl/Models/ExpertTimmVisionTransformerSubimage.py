@@ -84,7 +84,7 @@ class ExpertTimmVisionTransformerSubimage(nn.Module):
         x, attention = self.forward_features(img)
 
         if collapse_attention_matrix:
-            attention = attention[:, :, 1:, 1:]
+            attention = attention[:, :, 1:, 1:]  # take the self attention
             attention = attention / torch.sum(attention, dim=3, keepdim=True)
             attention = torch.sum(attention, dim=2)
 
