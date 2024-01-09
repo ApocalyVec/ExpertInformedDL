@@ -224,7 +224,6 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
             optimizer.zero_grad()
         with context_manager:
             output, attention = model(image, fixation_sequence=fixation_sequence_torch.to(device))
-            # pred = F.softmax(output, dim=1)
 
             attention = torch.sum(attention, dim=1)  # summation across the heads
             attention /= torch.sum(attention, dim=1, keepdim=True)  # normalize the attention output
@@ -251,7 +250,10 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
             else:
                 loss = classification_loss + attention_loss
 
+
         # update the weights #################################################################
+        # a = [x.attn.attention.qkv.weight.grad for _, x in model.vision_transformer.blocks._modules.items()]
+        # a = [x._modules['0']._modules['fn'].to_qkv.weight.grad for _, x in model.ViT.transformer.layers._modules.items()]
         if mode == 'train':
             loss.backward()
 

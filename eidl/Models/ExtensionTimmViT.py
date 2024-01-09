@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from timm.models.vision_transformer import VisionTransformer, Block, Attention
 
-class ExpertTimmVisionTransformer(nn.Module):
+class ExtensionTimmViT(nn.Module):
     def __init__(self, vision_transformer: VisionTransformer, num_dim_fixation=2, num_lstm_layers=2, rnn_hidden_dim=64, fixation_conditioned=True):
         """
         Composite class extending the VisionTransformer from timm
@@ -81,7 +81,7 @@ class ExpertTimmViTBlock(nn.Module):
         self.attention = None
 
     def forward(self, x):
-        x, self.attention = self.attn(x)
+        x, _ = self.attn(x)  # TODO
         x = x + self.block.drop_path1(self.block.norm1(x))
         x = x + self.block.drop_path2(self.block.norm2(self.block.mlp(x)))
         return x

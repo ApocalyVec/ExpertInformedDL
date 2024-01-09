@@ -5,12 +5,10 @@ from timm.models.vision_transformer import VisionTransformer, Block, Attention
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
+from eidl.Models.ExtensionTimmViT import ExpertTimmViTBlock
 
 
-from eidl.Models.ExpertTimmVisionTransformer import ExpertTimmViTBlock
-
-
-class ExpertTimmVisionTransformerSubimage(nn.Module):
+class ExtensionTimmViTSubimage(nn.Module):
     def __init__(self, vision_transformer: VisionTransformer, num_dim_fixation=2, num_lstm_layers=2, rnn_hidden_dim=64, fixation_conditioned=True):
         """
         Composite class extending the VisionTransformer from timm
@@ -32,8 +30,8 @@ class ExpertTimmVisionTransformerSubimage(nn.Module):
         self.fixation_conditioned = fixation_conditioned
 
         # wrap the original blocks with our implementation to access the attention activation
-        for i in range(len(self.vision_transformer.blocks)):
-            self.vision_transformer.blocks[i] = ExpertTimmViTBlock(self.vision_transformer.blocks[i])
+        # for i in range(len(self.vision_transformer.blocks)):  # TODO Uncomment
+        #     self.vision_transformer.blocks[i] = ExpertTimmViTBlock(self.vision_transformer.blocks[i])
 
         # add the lstm layer to process the fixation sequence
         self.lstm = nn.LSTM(self.num_dim_fixation, self.lstm_hidden_dim, num_layers=self.num_lstm_layers, bidirectional=False, batch_first=True)
@@ -70,14 +68,14 @@ class ExpertTimmVisionTransformerSubimage(nn.Module):
         # if self.grad_checkpointing and not torch.jit.is_scripting():
         #     x = checkpoint_seq(self.blocks, x)
         # else:
-        x = self.vision_transformer.blocks(x)
-        attention = self.vision_transformer.blocks[-1].attention  # we keep the attention activation of the last layer
+        x, attention = self.vision_transformer.blocks(x)
+        # attention = self.vision_transformer.blocks[-1].attention  # TODO uncomment we keep the attention activation of the last layer
 
         x = self.vision_transformer.norm(x)
-        try:
-            assert attention is not None
-        except AssertionError:
-            raise ValueError("the attention activation in forward_features is none, check your depth parameter")
+        # try:  TODO uncomment
+        #     assert attention is not None
+        # except AssertionError:
+        #     raise ValueError("the attention activation in forward_features is none, check your depth parameter")
         return x, attention
 
     def forward(self, img, fixation_sequence, collapse_attention_matrix=True, *args, **kwargs):
@@ -85,8 +83,8 @@ class ExpertTimmVisionTransformerSubimage(nn.Module):
 
         if collapse_attention_matrix:
             attention = attention[:, :, 1:, 1:]  # take the self attention
-            attention = attention / torch.sum(attention, dim=3, keepdim=True)
-            attention = torch.sum(attention, dim=2)
+            attention = attention / torch.sum(attention, dim=3, keepdim=True)  # normalize over the key dimension
+            attention = torch.sum(attention, dim=2)  # sum over the query dimension
 
         x = self.vision_transformer.forward_head(x, pre_logits=True)  # set pre_logits to true, don't apply the classification head
         if self.fixation_conditioned:
@@ -99,4 +97,3 @@ class ExpertTimmVisionTransformerSubimage(nn.Module):
     def get_grid_size(self):
         return self.vision_transformer.patch_embed.grid_size
 
-    # TODO add test function, without fixation sequence as in ExpertAttentionViT.test()

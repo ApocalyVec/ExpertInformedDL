@@ -152,10 +152,10 @@ class SubimageHandler:
             attention = attention * (1 - np.eye(len(attention)))
             attention = np.einsum('i,ij->j', source_attention_patchified, attention)
 
-            # _attention = np.zeros(len(source_attention_patchified))
-            # for i in range(len(source_attention_patchified)):
-            #     _attention += source_attention_patchified[i] * attention[i, :]
-            # attention = _attention
+            _attention = np.zeros(len(source_attention_patchified))
+            for i in range(len(source_attention_patchified)):
+                _attention += source_attention_patchified[i] * attention[i, :]
+            attention = _attention
 
             # bayesian inverse relation ##########################################
             # attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
