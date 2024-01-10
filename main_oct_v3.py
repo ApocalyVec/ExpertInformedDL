@@ -31,20 +31,25 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
 results_dir = '../temp/results'
-use_saved_folds = '../temp/results-01_07_2024_15_13_23'
+# use_saved_folds = '../temp/results-01_07_2024_15_13_23'
+use_saved_folds = None
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 15
+epochs = 100
 random_seed = 42
 batch_size = 2
 folds = 3
 
+test_size = 0.1
+val_size = 0.1
+
 # grid search hyper-parameters ##################################
 ################################################################
 # depths = 1, 3
-depths = 12,
+# depths = 12,
+depths = 1,
 
 ################################################################
 # alphas = 0.0, 1e-2, 0.1, 0.25, 0.5, 0.75, 1.0
@@ -56,7 +61,7 @@ alphas = 1e-2,
 # lrs = 1e-2, 1e-3, 1e-4
 # lrs = 1e-4, 1e-5
 # lrs = 1e-4,
-lrs = 1e-3,
+lrs = 1e-4,
 
 non_pretrained_lr_scaling = 1e-2
 
@@ -67,9 +72,9 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-model_names = 'vit_small_patch32_224_in21k_subimage',
+# model_names = 'vit_small_patch32_224_in21k_subimage',
 # model_names = 'base_subimage',
-# model_names = 'inception_v4_subimage'
+model_names = 'inception_v4_subimage',
 
 grid_search_params = {
     'vit_small_patch32_224_in21k_subimage': {
@@ -119,7 +124,8 @@ if __name__ == '__main__':
         print("Creating data set")
         folds, test_dataset, image_stats = get_oct_test_train_val_folds(data_root, image_size=image_size, n_folds=folds, n_jobs=n_jobs,
                                                                                     cropped_image_data_path=cropped_image_data_path,
-                                                                                    patch_size=patch_size, gaussian_smear_sigma=gaussian_smear_sigma)
+                                                                                    patch_size=patch_size, gaussian_smear_sigma=gaussian_smear_sigma,
+                                                                        test_size=test_size, val_size=val_size)
         now = datetime.now()
         dt_string = now.strftime("%m_%d_%Y_%H_%M_%S")
         results_dir = f"{results_dir}-{dt_string}"
@@ -160,7 +166,7 @@ if __name__ == '__main__':
         model_config_string = f'model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_depth-{model.depth}_lr-{lr}'
         print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
 
-        if 'inception' in model_name:
+        if 'inception' in model_name or alpha == 0.0:
             train_dataset = train_unique_img_dataset
         else:
             train_dataset = train_trial_dataset
@@ -169,8 +175,8 @@ if __name__ == '__main__':
 
         class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
 
-        # optimizer = optim.Adam(model.parameters(), lr=lr)
-        optimizer = optim.SGD(model.parameters(), lr=lr)
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        # optimizer = optim.SGD(model.parameters(), lr=lr)
         criterion = nn.CrossEntropyLoss()
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)

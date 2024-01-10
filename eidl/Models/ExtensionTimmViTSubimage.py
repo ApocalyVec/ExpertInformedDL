@@ -68,7 +68,11 @@ class ExtensionTimmViTSubimage(nn.Module):
         # if self.grad_checkpointing and not torch.jit.is_scripting():
         #     x = checkpoint_seq(self.blocks, x)
         # else:
-        x, attention = self.vision_transformer.blocks(x)
+        x = self.vision_transformer.blocks(x)
+        if type(x) is tuple:
+            x, attention = x
+        else:
+            attention = None
         # attention = self.vision_transformer.blocks[-1].attention  # TODO uncomment we keep the attention activation of the last layer
 
         x = self.vision_transformer.norm(x)
@@ -81,7 +85,7 @@ class ExtensionTimmViTSubimage(nn.Module):
     def forward(self, img, fixation_sequence, collapse_attention_matrix=True, *args, **kwargs):
         x, attention = self.forward_features(img)
 
-        if collapse_attention_matrix:
+        if collapse_attention_matrix and attention is not None:
             attention = attention[:, :, 1:, 1:]  # take the self attention
             attention = attention / torch.sum(attention, dim=3, keepdim=True)  # normalize over the key dimension
             attention = torch.sum(attention, dim=2)  # sum over the query dimension

@@ -89,7 +89,7 @@ class SubimageHandler:
         return image_data_dict
 
     def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
-                                     notes='', discard_ratio=0.9, *args, **kwargs):
+                                     notes='', discard_ratio=0.9, model='base-vit', *args, **kwargs):
         """
 
         Parameters
@@ -99,6 +99,7 @@ class SubimageHandler:
                         if not provided, the model attention will be returned
         is_plot_results: if True, the results will be plotted, see the parameter save_dir
         save_dir: if provided, the plots will be saved to this directory instead of being shown
+        model: can be either 'base-vit' or 'pretrained-vit' or 'pretrained-cnn'
 
         Returns
         -------

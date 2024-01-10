@@ -223,26 +223,27 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
         if mode == 'train':
             optimizer.zero_grad()
         with context_manager:
-            output, attention = model(image, fixation_sequence=fixation_sequence_torch.to(device))
+            output = model(image, fixation_sequence=fixation_sequence_torch.to(device))
 
-            attention = torch.sum(attention, dim=1)  # summation across the heads
-            attention /= torch.sum(attention, dim=1, keepdim=True)  # normalize the attention output
+            if type(output) is tuple:
+                output, attention = output
 
-            y_tensor = label_onehot_encoded.to(device)
-            if class_weights is not None:
-                classification_loss = criterion(weight=class_weights)(output, y_tensor)
-            else:
-                classification_loss = criterion()(output, y_tensor)
-
-            if alpha is not None:
+            attention_loss = torch.tensor(0).to(device)
+            if attention is not None and alpha is not None:
+                attention = torch.sum(attention, dim=1)  # summation across the heads
+                attention /= torch.sum(attention, dim=1, keepdim=True)  # normalize the attention output, so that they sum to 1
                 if dist == 'cross-entropy':
                     attention_loss = alpha * F.cross_entropy(attention, aoi_heatmap.to(device))
                 elif dist == 'Wasserstein':
                     attention_loss = alpha * torch_wasserstein_loss(attention, aoi_heatmap.to(device))
                 else:
                     raise NotImplementedError(f" Loss type {dist} is not implemented")
+
+            y_tensor = label_onehot_encoded.to(device)
+            if class_weights is not None:
+                classification_loss = criterion(weight=class_weights)(output, y_tensor)
             else:
-                attention_loss = 0.
+                classification_loss = criterion()(output, y_tensor)
 
             if l2_weight:
                 l2_penalty = l2_weight * sum([(p ** 2).sum() for p in model.parameters()])
@@ -267,9 +268,15 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
             # nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0, norm_type=2)
             nn.utils.clip_grad_value_(model.parameters(), clip_value=1.0)
             bad_grads = {}
+
             for name, param in model.named_parameters():
                 if param.grad is not None and is_bad_grad(param.grad):
                     print(f"Find nan in param.grad in module: {name}")
+                    bad_grads[name] = param.grad
+
+                # check if weights are too large
+                if torch.any(torch.abs(param) > 1000):
+                    print(f"Find large weights in module: {name}")
                     bad_grads[name] = param.grad
 
             optimizer.step()
