@@ -34,14 +34,14 @@ def get_model(model_name, image_size, depth, device, *args, **kwargs):
         model = timm.create_model(model_name, img_size=reverse_tuple(image_size), pretrained=True, num_classes=2)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
         model = ExtensionTimmViT(model).to(device)
     elif model_name == 'vit_small_patch32_224_in21k_subimage':
-        model = timm.create_model(model_name.strip('_subimage'),  pretrained=True, num_classes=2, dynamic_img_size=True)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
+        model = timm.create_model(model_name.replace('_subimage', ''),  pretrained=True, num_classes=2, dynamic_img_size=True)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
         model = ExtensionTimmViTSubimage(model).to(device)
-    elif model_name == 'InceptionV4_subimage':
-        model = timm.create_model(model_name.strip('_subimage'),  pretrained=True, dynamic_img_size=True, features_only=True)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
+    elif model_name == 'inception_v4_subimage':
+        model = timm.create_model(model_name.replace('_subimage', ''),  pretrained=True, features_only=True)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
         model = ExtensionModelSubimage(model, num_classes=2).to(device)
     else:
         raise ValueError(f"model name {model_name} is not supported")
-    return model, model.get_grid_size()
+    return model
 
 
 def swap_tuple(t, i, j):

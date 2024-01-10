@@ -31,8 +31,8 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
 results_dir = '../temp/results'
-# use_saved_folds = '../temp/results-01_07_2024_15_13_23'
-use_saved_folds = None
+use_saved_folds = '../temp/results-01_10_2024_13_47_00'
+# use_saved_folds = None
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
@@ -162,16 +162,16 @@ if __name__ == '__main__':
 
     for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
         model_name, depth, alpha, aoi_loss_dist, lr = parameter
-        model, grid_size = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
-        model_config_string = f'model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_depth-{model.depth}_lr-{lr}'
+        model = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
+        model_config_string = f"model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_lr-{lr}" + f'depth-{model.depth}' if hasattr(model, 'depth') else ''
         print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
 
         if 'inception' in model_name or alpha == 0.0:
             train_dataset = train_unique_img_dataset
         else:
             train_dataset = train_trial_dataset
-        train_dataset.create_aoi(grid_size=grid_size, use_subimages=True)
-        valid_dataset.create_aoi(grid_size=grid_size, use_subimages=True)
+        train_dataset.create_aoi(use_subimages=True)
+        valid_dataset.create_aoi(use_subimages=True)
 
         class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
 

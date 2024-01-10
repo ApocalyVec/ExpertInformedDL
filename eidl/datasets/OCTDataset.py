@@ -64,7 +64,7 @@ class OCTDatasetV3(Dataset):
     def has_subimages(self):
         return 'sub_images' in self.trial_samples[0].keys()
 
-    def create_aoi(self, grid_size, use_subimages=False):
+    def create_aoi(self, grid_size=None, use_subimages=False):
         """
         aoi size is equal to (num_patches_width, num_patches_height). So it depends on the model
         Parameters
@@ -375,6 +375,7 @@ def get_oct_test_train_val_folds(data_root, image_size, n_folds, test_size=0.1, 
 
     train_val_image_names = image_names[train_val_image_indices]
     train_val_image_labels = image_labels[train_val_image_indices]
+    val_size = val_size / (1 - test_size)  # adjust the val size to be relative to the train_val set
     skf = StratifiedShuffleSplit(test_size=val_size, n_splits=n_folds, random_state=random_seed)
     folds = []
     for f_index, (train_image_indices, val_image_indices) in enumerate(skf.split(train_val_image_names, train_val_image_labels)):

@@ -227,6 +227,8 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
 
             if type(output) is tuple:
                 output, attention = output
+            else:
+                attention = None
 
             attention_loss = torch.tensor(0).to(device)
             if attention is not None and alpha is not None:
