@@ -124,10 +124,10 @@ def get_subimage_model(*args, **kwargs):
 
     if not os.path.exists(model_file_path):
         urllib.request.urlretrieve(model_url, model_file_path)
-    model = torch.load(model_file_path)
+    vit_model = torch.load(model_file_path)
     print("Model downloaded and loaded.")
 
-    patch_size = model.patch_height, model.patch_width
+    patch_size = vit_model.patch_height, vit_model.patch_width
 
     # get the dataset
     if not os.path.exists(dataset_path):
@@ -138,7 +138,7 @@ def get_subimage_model(*args, **kwargs):
     data = pickle.load(open(dataset_path, 'rb'))
     subimage_handler = SubimageHandler()
     subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
-    subimage_handler.model = model
+    subimage_handler.models['vit'] = vit_model
 
     return subimage_handler
 
