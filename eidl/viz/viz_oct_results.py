@@ -58,6 +58,9 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
     results_dict, model_config_strings = parse_training_results(results_dir)
 
+    np.random.choice([x['name'] for x in test_dataset.trial_samples if x['label'] == 'G'], size=16)
+    np.random.choice([x['name'] for x in test_dataset.trial_samples if x['label'] == 'S'], size=16)
+
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
 
     # visualize the val acc across alpha ###############################################################################

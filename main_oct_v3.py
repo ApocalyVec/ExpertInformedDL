@@ -32,7 +32,8 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 
 results_dir = '../temp/results'
 # use_saved_folds = None
-use_saved_folds = '../temp/results-base-vit'
+use_saved_folds = '../temp/results-base-vit-lr-scheduler'
+
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
@@ -174,13 +175,15 @@ if __name__ == '__main__':
 
         optimizer = optim.Adam(model.parameters(), lr=lr)
         # optimizer = optim.SGD(model.parameters(), lr=lr)
+        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
+
         criterion = nn.CrossEntropyLoss()
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
         valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
         train_loss_list, train_acc_list, valid_loss_list, valid_acc_list = train_oct_model(
-            model, model_config_string, train_loader, valid_loader, results_dir=results_dir, optimizer=optimizer, num_epochs=epochs,
-            alpha=alpha, dist=aoi_loss_dist, l2_weight=None, class_weights=class_weights)
+            model, model_config_string, train_loader, valid_loader,  optimizer=optimizer, results_dir=results_dir, num_epochs=epochs,
+            alpha=alpha, dist=aoi_loss_dist, l2_weight=None, class_weights=class_weights, lr_scheduler=scheduler)
 
     # viz_oct_results(results_dir, test_image_path, test_image_main, batch_size, image_size, n_jobs=n_jobs)

@@ -190,8 +190,8 @@ def train(model, optimizer: torch.optim.Optimizer, train_data_loader, val_data_l
 #
 #         return epoch_loss, epoch_acc
 
-def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, class_weights, model_config_string, criterion,
-                      dist, alpha, l2_weight, epoch_i, *args, **kwargs):
+def run_one_epoch_oct(mode, model: nn.Module, train_loader, device, class_weights, model_config_string, criterion,
+                      dist, alpha, l2_weight, epoch_i, optimizer=None, *args, **kwargs):
     if mode == 'train':
         model.train()
     elif mode == 'val':
@@ -298,8 +298,8 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
     pbar.close()
     return epoch_loss, epoch_acc
 
-def train_oct_model(model, model_config_string, train_loader, valid_loader, results_dir,
-                    criterion=nn.CrossEntropyLoss, num_epochs=100, alpha=0.01, l2_weight=None, dist='cross-entropy', *args, **kwargs):
+def train_oct_model(model, model_config_string, train_loader, valid_loader, optimizer, results_dir,
+                    criterion=nn.CrossEntropyLoss, num_epochs=100, alpha=0.01, l2_weight=None, dist='cross-entropy', lr_scheduler=None, *args, **kwargs):
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -313,8 +313,9 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, resu
     for epoch in range(num_epochs):
         print('epoch:{:d} / {:d}'.format(epoch, num_epochs))
         print('*' * 100)
-        train_loss, train_acc = run_one_epoch_oct('train', model, train_loader, device=device, model_config_string=model_config_string, criterion=criterion,
+        train_loss, train_acc = run_one_epoch_oct('train', model, train_loader, optimizer=optimizer, device=device, model_config_string=model_config_string, criterion=criterion,
                                                 dist=dist, alpha=alpha, l2_weight=l2_weight, epoch_i=epoch, *args, **kwargs)
+        lr_scheduler.step()
         train_loss_list.append(train_loss)
         train_acc_list.append(train_acc)
         valid_loss, valid_acc = run_one_epoch_oct('val', model, valid_loader, device=device, model_config_string=model_config_string, criterion=criterion,
