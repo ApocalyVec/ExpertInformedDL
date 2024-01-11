@@ -59,8 +59,8 @@ class SubimageHandler:
         """
 
         # change the key name of the image data from the original cropped_image_data from image to original image
-        for k in image_data_dict.keys():
-            image_data_dict[k]['original_image'] = image_data_dict[k].pop('image')
+        # for k in image_data_dict.keys():
+        #     image_data_dict[k]['original_image'] = image_data_dict[k].pop('image')
 
         # preprocess the subimages
         image_data_dict = preprocess_subimages(image_data_dict, *args, **kwargs)
@@ -112,6 +112,10 @@ class SubimageHandler:
         sample = self.image_data_dict[image_name]
         if source_attention is not None:
             assert source_attention.shape == sample['original_image'].shape[:-1], f"source attention shape {source_attention.shape} does not match image shape {sample['original_image'].shape[:-1]}"
+        assert model_name in ['vit', 'inception'], f"model name {model_name} is not supported, must be either 'vit' or 'inception'"
+        if model_name == 'inception' and source_attention is not None:
+            warnings.warn("source attention is not used for the inception model")
+
         image_original_size = sample['original_image'].shape[:-1]
 
         device = next(self.model.parameters()).device
@@ -184,8 +188,6 @@ class SubimageHandler:
                                                        subimage_positions=subimage_positions, patch_size=patch_size,
                                                        **kwargs)
         else:
-            if model_name == 'inception' and source_attention is not None:
-                warnings.warn("source attention is not used for the inception model")
             # model is inception and source attention is not provided
             # TODO implement put the gradcam back in the original image, take example from AOI
             original_image_attention, subimage_attention = None, None  # input should be grad_cam

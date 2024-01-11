@@ -214,7 +214,7 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
 
         # prepare the input data ##############################################################
         image, label_encoded, label_onehot_encoded, fixation_sequence, aoi_heatmap, *_ = batch
-        fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
+        # fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
         image = any_image_to_tensor(image, device)
 
         # check the aoi needs to be flattened
@@ -226,7 +226,7 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
             optimizer.zero_grad()
         with context_manager:
             # gradcam = get_gradcam(model, image, target=label_onehot_encoded.to(device))
-            output = model(image, fixation_sequence=fixation_sequence_torch.to(device))
+            output = model(image)
 
             if type(output) is tuple:
                 output, attention = output

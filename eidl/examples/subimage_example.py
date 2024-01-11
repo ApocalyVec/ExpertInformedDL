@@ -13,4 +13,4 @@ if __name__ == '__main__':
     # if not provided, the model attention will be returned otherwise the perceptual attention will be returned
 
     # compute the static attention for the given image
-    rtn = subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', is_plot_results=True, discard_ratio=0.9, model='vit')
+    rtn = subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', is_plot_results=True, discard_ratio=0.9, model_name='vit')

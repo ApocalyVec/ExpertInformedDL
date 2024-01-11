@@ -30,9 +30,9 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 # results_dir = 'results'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
-results_dir = '../temp/results'
-use_saved_folds = '../temp/results-01_10_2024_13_47_00'
-# use_saved_folds = None
+# results_dir = '../temp/results'
+use_saved_folds = '../temp/results-base-vit'
+use_saved_folds = None
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
@@ -43,7 +43,7 @@ batch_size = 2
 folds = 3
 
 test_size = 0.1
-val_size = 0.1
+val_size = 0.14
 
 # grid search hyper-parameters ##################################
 ################################################################
@@ -73,8 +73,8 @@ aoi_loss_distance_types = 'cross-entropy',
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
 # model_names = 'vit_small_patch32_224_in21k_subimage',
-# model_names = 'base_subimage',
-model_names = 'inception_v4_subimage',
+model_names = 'base_subimage',
+# model_names = 'inception_v4_subimage',
 
 grid_search_params = {
     'vit_small_patch32_224_in21k_subimage': {
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
         model_name, depth, alpha, aoi_loss_dist, lr = parameter
         model = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
-        model_config_string = f"model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_lr-{lr}" + (f'depth-{model.depth}' if hasattr(model, 'depth') else '')
+        model_config_string = f"model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_lr-{lr}" + (f'_depth-{model.depth}' if hasattr(model, 'depth') else '')
         print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
 
         if 'inception' in model_name or alpha == 0.0:

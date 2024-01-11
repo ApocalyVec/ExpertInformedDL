@@ -233,7 +233,7 @@ class ViT_LSTM(nn.Module):
         return self._encode(x, *args, **kwargs)
 
 
-    def _encode(self, x, fixation_sequence, collapse_attention_matrix, *args, **kwargs):
+    def _encode(self, x, collapse_attention_matrix, fixation_sequence=None, *args, **kwargs):
         b, n, _ = x.shape
 
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)

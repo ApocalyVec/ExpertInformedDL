@@ -78,9 +78,6 @@ class OCTDatasetV3(Dataset):
         """
         for i in range(len(self.trial_samples)):
             fixation_sequence = self.trial_samples[i]['fix_seq']
-            if fixation_sequence is None:
-                raise ValueError(f"image at index {i} does not have corresponding fixation seq.")
-
             if self.has_subimages():
                 image_size = self.trial_samples[i]['original_image'].shape[:-1]
                 aoi_from_fixation = []
@@ -90,25 +87,28 @@ class OCTDatasetV3(Dataset):
                     grid = s_image['mask'].shape  # the grid size for an image is the same as the mask size
                     percentage_position = [(x/image_size[1], y/image_size[0]) for x, y in s_image['position']]
 
-                    s_image_fix_sequence = np.array([(x, y) for x, y in fixation_sequence if percentage_position[0][0] <= x <= percentage_position[2][0]
-                                                                     and percentage_position[0][1] <= y <= percentage_position[2][1]])
+                    if len(fixation_sequence) > 0:
+                        s_image_fix_sequence = np.array([(x, y) for x, y in fixation_sequence if percentage_position[0][0] <= x <= percentage_position[2][0]
+                                                                         and percentage_position[0][1] <= y <= percentage_position[2][1]])
 
-                    # plt.imshow(self.trial_samples[i]['original_image'])
-                    # fix_positions = np.array([(x * image_size[1], y * image_size[0]) for x, y in fixation_sequence])
-                    # plt.scatter(fix_positions[:, 0], fix_positions[:, 1], c='r', s=1)
-                    # fix_positions = np.array([(x * image_size[1], y * image_size[0]) for x, y in s_image_fix_sequence])
-                    # plt.scatter(fix_positions[:, 0], fix_positions[:, 1], c='b', s=4)
-                    # plt.show()
+                        # plt.imshow(self.trial_samples[i]['original_image'])
+                        # fix_positions = np.array([(x * image_size[1], y * image_size[0]) for x, y in fixation_sequence])
+                        # plt.scatter(fix_positions[:, 0], fix_positions[:, 1], c='r', s=1)
+                        # fix_positions = np.array([(x * image_size[1], y * image_size[0]) for x, y in s_image_fix_sequence])
+                        # plt.scatter(fix_positions[:, 0], fix_positions[:, 1], c='b', s=4)
+                        # plt.show()
 
-                    # normalize the subimage fixation sequence with respect to its grid size
+                        # normalize the subimage fixation sequence with respect to its grid size
 
-                    if len(s_image_fix_sequence) > 0:
-                        s_image_fix_seq_normed = np.zeros_like(s_image_fix_sequence)
-                        s_image_fix_seq_normed[:, 0] = (s_image_fix_sequence[:, 0] - percentage_position[0][0]) / (percentage_position[2][0] - percentage_position[0][0])
-                        s_image_fix_seq_normed[:, 1] = (s_image_fix_sequence[:, 1] - percentage_position[0][1]) / (percentage_position[2][1] - percentage_position[0][1])
-                        aoi_heatmap_subimage = get_heatmap(s_image_fix_seq_normed, grid_size=grid, normalize=False)
+                        if len(s_image_fix_sequence) > 0:
+                            s_image_fix_seq_normed = np.zeros_like(s_image_fix_sequence)
+                            s_image_fix_seq_normed[:, 0] = (s_image_fix_sequence[:, 0] - percentage_position[0][0]) / (percentage_position[2][0] - percentage_position[0][0])
+                            s_image_fix_seq_normed[:, 1] = (s_image_fix_sequence[:, 1] - percentage_position[0][1]) / (percentage_position[2][1] - percentage_position[0][1])
+                            aoi_heatmap_subimage = get_heatmap(s_image_fix_seq_normed, grid_size=grid, normalize=False)
+                        else:
+                            aoi_heatmap_subimage = np.zeros(grid)
                     else:
-                        aoi_heatmap_subimage = np.zeros(grid)
+                        aoi_heatmap_subimage = np.ones(grid)
                     # plt.imshow(aoi_heatmap)
                     # plt.show()
                     aoi_from_fixation.append(aoi_heatmap_subimage.reshape(-1))
@@ -118,6 +118,8 @@ class OCTDatasetV3(Dataset):
                 if np.isnan(aoi_from_fixation).any():
                     raise ValueError(f"aoi heatmap contains nan at index {i}")
             else:
+                if fixation_sequence is None:
+                    raise ValueError(f"Not implemented for without subimages: image at index {i} does not have corresponding fixation seq.")
                 aoi_from_fixation = get_heatmap(fixation_sequence, grid_size=grid_size)
             self.trial_samples[i]['aoi'] = aoi_from_fixation
 
@@ -254,6 +256,12 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
                 continue
             trial_samples.append({**{'name': image_name, 'fix_seq': fixation_sequence}, **image_data_dict[image_name]})
             image_name_counts[image_name] += 1
+
+    # add the images that doesn't have a trial
+    trial_samples_image_names = [x['name'] for x in trial_samples]
+    for image_name, image_data in image_data_dict.items():
+        if image_name not in trial_samples_image_names:
+            trial_samples.append({**{'name': image_name, 'fix_seq': np.zeros((0, 2))}, **image_data})
 
     print(f"Number of trials without fixation sequence {no_fixation_count} with {len(trial_samples)} valid trials")
     plt.hist(image_name_counts.values(), bins=np.arange(max(image_name_counts.values())))
