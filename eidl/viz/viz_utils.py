@@ -97,7 +97,6 @@ def plot_image_attention(image_original, model_attention, source_attention, cmap
     plt.title("Model Attention")
 
     plt.suptitle(notes)
-    # plt.show()
 
     if save_dir is not None:
         fig.savefig(os.path.join(save_dir, f'{notes}.png'))

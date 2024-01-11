@@ -24,8 +24,8 @@ class ExtensionModelSubimage(nn.Module):
 
         pooled_features = []
         for feature in self.subimage_features:
-            hooks = [fmap.register_hook(self.activations_hook) for fmap in feature]
             if add_grad_hooks:
+                hooks = [fmap.register_hook(self.activations_hook) for fmap in feature]
                 self.gradient_hooks.append(hooks)
 
             # Pool and flatten the feature maps

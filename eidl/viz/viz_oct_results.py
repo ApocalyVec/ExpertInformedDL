@@ -35,7 +35,8 @@ def register_cmap_with_alpha(cmap_name):
     plt.register_cmap(cmap=map_object)
     return cmap_rtn
 
-def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, viz_val_acc=True, plot_format='individual', num_plot=14, rollout_transparency=0.75):
+def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, viz_val_acc=True, plot_format='individual', num_plot=14,
+                    rollout_transparency=0.75, figure_dir=None):
     '''
 
     Parameters
@@ -63,7 +64,6 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     image_stats = pickle.load(open(os.path.join(results_dir, 'image_stats.p'), 'rb'))
     # load the test dataset ############################################################################################
     test_dataset = pickle.load(open(os.path.join(results_dir, 'test_dataset.p'), 'rb'))
-
     results_dict, model_config_strings = parse_training_results(results_dir)
 
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
@@ -113,6 +113,8 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
         plt.title(f"validation accuracy across expert AOI weights")
         plt.legend()
         plt.tight_layout()
+        if figure_dir is not None:
+            plt.savefig(os.path.join(figure_dir, f"validation accuracy across expert AOI weights.png"))
         plt.show()
 
         # visualize the hyperparam space ##################################################################################
@@ -142,6 +144,8 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 plt.ylabel(hyperparam_name)
                 plt.colorbar()
                 plt.title(f"{model}: validation accuracy for {hyperparam_name}-alpha ")
+                if figure_dir is not None:
+                    plt.savefig(os.path.join(figure_dir, f"{model}: validation accuracy for {hyperparam_name}.png"))
                 plt.show()
 
     # visualize the attention rollout ##################################################################################
@@ -160,6 +164,10 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     # register target cmap #########################################################
     has_subimage = test_dataset.trial_samples[0].keys()
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
+
+    roll_image_folder = os.path.join(figure_dir, 'rollout_images')
+    if not os.path.isdir(roll_image_folder):
+        os.mkdir(roll_image_folder)
 
     with torch.no_grad():
         test_dataset.create_aoi(best_model.get_grid_size())
@@ -205,8 +213,9 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 plt.imshow(image_original)  # plot the original image, bgr to rgb
                 plt.axis('off')
                 plt.title(f'#{sample_count}, original image')
-                # plt.show()
-                Image.fromarray(image_original).save(f'figures/Sample {sample_count} in test set, original image.png')
+                if figure_dir is not None:
+                    Image.fromarray(image_original).save(os.path.join(figure_dir, f'#{sample_count}, original image.png'))
+                plt.show()
                 fig_list.append(plt2arr(fig))
                 # plot the original image with expert AOI heatmap
                 fig = plt.figure(figsize=(15, 10), constrained_layout=True)
@@ -217,18 +226,20 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
                 plt.axis('off')
                 plt.title(f'#{sample_count}, expert AOI')
-                # plt.show()
-                fig.savefig(f'figures/Sample {sample_count} in test set, expert attention.png')
+                plt.colorbar()
+                if figure_dir is not None:
+                    plt.savefig(os.path.join(figure_dir, f'#{sample_count}, expert AOI.png'))
+                plt.show()
 
                 for i, roll in enumerate(rolls):
                     rollout_image, subimage_roll = process_aoi(rolls[0], image_original_size, has_subimage,
                                                grid_size=best_model.get_grid_size(),
                                                subimage_masks=subimage_masks, subimages=subimages, subimage_positions=subimage_positions, patch_size=patch_size)
 
-                    plot_image_attention(image_original, rollout_image, _aoi_heatmap, cmap_name,
-                                         notes=f'Sample  {sample_count} in test  set, model {model}, roll depth {i}')
-                    plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['std'], image_stats['mean'], cmap_name,
-                                        notes=f"Sample {sample_count} in test set, model: {model}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir='figures')
+                    plot_image_attention(image_original, rollout_image, _aoi_heatmap, cmap_name='plasma',
+                                         notes=f'#{sample_count} model {model}, roll depth {i}', save_dir=roll_image_folder)
+                    plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['image_stds'], image_stats['image_means'], cmap_name='plasma',
+                                        notes=f"#{sample_count} model: {model}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
 
                     # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
                     fig_list.append(plt2arr(fig))

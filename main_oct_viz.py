@@ -1,10 +1,15 @@
+import os
+
 from eidl.viz.viz_oct_results import viz_oct_results
 
-results_dir = '../temp/results-01_07_2024_10_53_56'
+results_dir = '../temp/results-base-vit'
+figure_dir = '../temp/results-base-vit/figures'
 
 batch_size = 8
 
 viz_val_acc = True
 
 if __name__ == '__main__':
-    viz_oct_results(results_dir, batch_size, viz_val_acc=viz_val_acc, plot_format='individual')
+    if not os.path.isdir(figure_dir):
+        os.mkdir(figure_dir)
+    viz_oct_results(results_dir, batch_size, viz_val_acc=viz_val_acc, plot_format='individual', figure_dir=figure_dir)
