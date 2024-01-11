@@ -51,7 +51,8 @@ def plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_std,
 
         plt.subplot(1, 3, 1)
         plt.imshow(s_image_unznormed, cmap=cmap_name)
-        plt.imshow(s_roll, cmap=cmap_name, alpha=overlay_alpha * s_roll / np.max(s_roll))
+        if np.max(s_roll) > 0:
+            plt.imshow(s_roll, cmap=cmap_name, alpha=overlay_alpha * s_roll / np.max(s_roll))
         plt.axis('off')
 
         plt.subplot(1, 3, 2)

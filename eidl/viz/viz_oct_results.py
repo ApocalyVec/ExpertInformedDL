@@ -147,7 +147,11 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
     best_model, best_model_results, best_model_config_string = get_best_model(models, results_dict)
     best_model.eval()
-    patch_size = best_model.patch_height, best_model.patch_width
+    if hasattr(best_model, 'patch_height'):
+        patch_size = best_model.patch_height, best_model.patch_width
+    else:
+        patch_size = best_model.vision_transformer.patch_embed.patch_size[0], best_model.vision_transformer.patch_embed.patch_size[1]
+
     model_depth = best_model.depth
 
     # visualize the training history of the best model ##################################################################
@@ -157,7 +161,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     has_subimage = test_dataset.trial_samples[0].keys()
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
-    roll_image_folder = os.path.join(figure_dir, 'rollout_images')
+    roll_image_folder = os.path.join(figure_dir, 'rollout_images1')
     if not os.path.isdir(roll_image_folder):
         os.mkdir(roll_image_folder)
 
@@ -167,7 +171,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
         # print(f"Test acc: {epoch_acc}")
 
         # use gradcam is model is not a ViT
-        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.1)
+        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.9)
         sample_count = 0
 
         if plot_format == 'grid':

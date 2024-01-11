@@ -2,8 +2,8 @@ import os
 
 from eidl.viz.viz_oct_results import viz_oct_results
 
-results_dir = '../temp/results-base-vit'
-figure_dir = '../temp/results-base-vit/figures'
+results_dir = '../temp/results-pretrained-vit'
+figure_dir = '../temp/results-pretrained-vit/figures'
 
 batch_size = 8
 
