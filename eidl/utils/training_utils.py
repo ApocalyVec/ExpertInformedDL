@@ -10,6 +10,8 @@ from tqdm import tqdm
 from torch import nn, autograd
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
+
+from eidl.Models.ExtensionModel import get_gradcam
 from eidl.utils.torch_utils import torch_wasserstein_loss, any_image_to_tensor
 from eidl.viz.bad_gradient import is_bad_grad
 
@@ -223,6 +225,7 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, optimizer, device, c
         if mode == 'train':
             optimizer.zero_grad()
         with context_manager:
+            # gradcam = get_gradcam(model, image, target=label_onehot_encoded.to(device))
             output = model(image, fixation_sequence=fixation_sequence_torch.to(device))
 
             if type(output) is tuple:

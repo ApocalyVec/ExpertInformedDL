@@ -207,10 +207,10 @@ def get_oct_data(data_root, image_size, n_jobs=1, cropped_image_data_path=None, 
                                       **{image_name: {'name': image_name, 'image': image, 'label': label}
                                          for image_name, image in zip(image_names, images)}}
     else:
-        cropped_image_data = pickle.load(open(cropped_image_data_path, 'rb'))
-        image_data = subimage_loader.load_image_data(cropped_image_data, n_jobs=n_jobs, *args, **kwargs)
+        subimage_data = pickle.load(open(cropped_image_data_path, 'rb'))
+        image_data = subimage_loader.load_image_data(subimage_data, n_jobs=n_jobs, *args, **kwargs)
 
-        load_image_args = [(image_name, image_size, image_info_dict['original_image']) for image_name, image_info_dict in cropped_image_data.items()]
+        load_image_args = [(image_name, image_size, image_info_dict['original_image']) for image_name, image_info_dict in subimage_data.items()]
         with Pool(n_jobs) as p:
             image_data_dict = dict(p.starmap(resize_image, load_image_args))  # this dict contains the resized image
 
