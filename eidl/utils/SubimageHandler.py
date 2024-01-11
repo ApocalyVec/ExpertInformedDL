@@ -10,8 +10,7 @@ from eidl.utils.iter_utils import collate_fn, collate_subimages
 from eidl.utils.image_utils import preprocess_subimages, z_norm_subimages, process_aoi, patchify
 from eidl.utils.torch_utils import any_image_to_tensor
 from eidl.viz.vit_rollout import VITAttentionRollout
-from eidl.viz.viz_oct_results import register_cmap_with_alpha
-from eidl.viz.viz_utils import plot_subimage_rolls, plot_image_attention
+from eidl.viz.viz_utils import plot_subimage_rolls, plot_image_attention, register_cmap_with_alpha
 
 
 class SubimageHandler:

@@ -8,7 +8,7 @@ from eidl.utils.SubimageHandler import SubimageHandler
 from eidl.utils.model_utils import get_best_model, parse_training_results, parse_model_parameter
 
 patch_size=(32, 32)
-data_path = 'C:/Dropbox/ExpertViT/Datasets/OCTData/oct_v2/oct_reports_info.p'
+data_path = 'C:/Users/apoca_vpmhq3c/Dropbox/ExpertViT/Datasets/OCTData/oct_v2/oct_reports_info_repaired.p'
 # results_dir = 'results-01_05_2024_10_56_13'
 results_dir = '../temp/results-01_03_2024_22_31_25'
 source_attention_path = r"../temp/source_attention\GCL Prob RLS_036_OS_TC.pickle"

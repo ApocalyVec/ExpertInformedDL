@@ -2,38 +2,24 @@ import os
 import pickle
 
 import cv2
-import imageio
 import matplotlib
 import numpy as np
-import pandas as pd
 import torch
 from matplotlib import pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
 from torch.utils.data import DataLoader
 import torch.nn.utils.rnn as rnn_utils
 from PIL import Image
 
-from eidl.utils.image_utils import remap_subimage_aoi, process_aoi
-from eidl.utils.iter_utils import chunker, collate_fn
+from eidl.datasets.OCTDataset import OCTDatasetV3
+from eidl.utils.image_utils import process_aoi
+from eidl.utils.iter_utils import collate_fn
 from eidl.utils.model_utils import parse_model_parameter, get_best_model, parse_training_results
 from eidl.utils.torch_utils import any_image_to_tensor
 from eidl.viz.vit_rollout import VITAttentionRollout
 
-from eidl.viz.viz_utils import plt2arr, plot_train_history, plot_subimage_rolls, plot_image_attention
+from eidl.viz.viz_utils import plt2arr, plot_train_history, plot_subimage_rolls, plot_image_attention, \
+    register_cmap_with_alpha
 
-
-def register_cmap_with_alpha(cmap_name):
-    # get colormap
-    ncolors = 256
-    color_array = plt.get_cmap(cmap_name)(range(ncolors))
-    # change alpha values
-    color_array[:, -1] = np.linspace(1.0, 0.0, ncolors)
-    # create a colormap object
-    cmap_rtn = f'{cmap_name}_alpha'
-    map_object = LinearSegmentedColormap.from_list(name=cmap_rtn, colors=color_array)
-    # register this new colormap with matplotlib
-    plt.register_cmap(cmap=map_object)
-    return cmap_rtn
 
 def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, viz_val_acc=True, plot_format='individual', num_plot=14,
                     rollout_transparency=0.75, figure_dir=None):
@@ -64,6 +50,12 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     image_stats = pickle.load(open(os.path.join(results_dir, 'image_stats.p'), 'rb'))
     # load the test dataset ############################################################################################
     test_dataset = pickle.load(open(os.path.join(results_dir, 'test_dataset.p'), 'rb'))
+    valid_dataset = pickle.load(open(os.path.join(results_dir, 'folds.p'), 'rb'))[0][1]  # TODO using only one fold for now
+    # combine the test and validation dataset
+    test_dataset = OCTDatasetV3([*test_dataset.trial_samples, *valid_dataset.trial_samples], True, valid_dataset.compound_label_encoder)
+    test_dataset_labels = np.array([x['label'] for x in test_dataset.trial_samples])
+    print(f"Test dataset size: {len(test_dataset)} after combining with validation set, with {np.sum(test_dataset_labels =='G')} glaucoma and {np.sum(test_dataset_labels =='S')} healthy samples")
+
     results_dict, model_config_strings = parse_training_results(results_dir)
 
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
@@ -185,7 +177,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
             fig.tight_layout()
 
         for batch in test_loader:
-            print(f'Processing sample {sample_count} in test set')
+            print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
             image, label, label_encoded, fix_sequence, aoi_heatmap, image_resized, image_original, *rest = batch
             if has_subimage:
                 # take out the batches
@@ -234,12 +226,13 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 for i, roll in enumerate(rolls):
                     rollout_image, subimage_roll = process_aoi(rolls[0], image_original_size, has_subimage,
                                                grid_size=best_model.get_grid_size(),
-                                               subimage_masks=subimage_masks, subimages=subimages, subimage_positions=subimage_positions, patch_size=patch_size)
+                                               subimage_masks=subimage_masks, subimages=subimages,
+                                               subimage_positions=subimage_positions, patch_size=patch_size, normalize_by_subimage=True)
 
                     plot_image_attention(image_original, rollout_image, _aoi_heatmap, cmap_name='plasma',
                                          notes=f'#{sample_count} model {model}, roll depth {i}', save_dir=roll_image_folder)
-                    plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['image_stds'], image_stats['image_means'], cmap_name='plasma',
-                                        notes=f"#{sample_count} model: {model}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
+                    plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['subimage_std'], image_stats['subimage_mean'], cmap_name='plasma',
+                                        notes=f"#{sample_count} model {model}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
 
                     # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
                     fig_list.append(plt2arr(fig))

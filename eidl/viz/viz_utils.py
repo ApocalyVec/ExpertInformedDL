@@ -3,6 +3,7 @@ import os.path
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def plt2arr(fig, draw=True):
@@ -102,3 +103,17 @@ def plot_image_attention(image_original, model_attention, source_attention, cmap
         fig.savefig(os.path.join(save_dir, f'{notes}.png'))
     else:
         plt.show()
+
+
+def register_cmap_with_alpha(cmap_name):
+    # get colormap
+    ncolors = 256
+    color_array = plt.get_cmap(cmap_name)(range(ncolors))
+    # change alpha values
+    color_array[:, -1] = np.linspace(1.0, 0.0, ncolors)
+    # create a colormap object
+    cmap_rtn = f'{cmap_name}_alpha'
+    map_object = LinearSegmentedColormap.from_list(name=cmap_rtn, colors=color_array)
+    # register this new colormap with matplotlib
+    plt.register_cmap(cmap=map_object)
+    return cmap_rtn
