@@ -30,14 +30,14 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 # results_dir = 'results'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
-# results_dir = '../temp/results'
+results_dir = '../temp/results'
 # use_saved_folds = None
 use_saved_folds = '../temp/results-base-vit'
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 1
+epochs = 100
 random_seed = 42
 batch_size = 2
 folds = 3
