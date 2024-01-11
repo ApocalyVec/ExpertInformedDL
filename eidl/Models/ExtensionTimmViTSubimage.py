@@ -9,7 +9,7 @@ from eidl.Models.ExtensionTimmViT import ExpertTimmViTBlock
 
 
 class ExtensionTimmViTSubimage(nn.Module):
-    def __init__(self, vision_transformer: VisionTransformer, num_dim_fixation=2, num_lstm_layers=2, rnn_hidden_dim=64, fixation_conditioned=True):
+    def __init__(self, vision_transformer: VisionTransformer, num_dim_fixation=2, num_lstm_layers=2, rnn_hidden_dim=64, fixation_conditioned=False):
         """
         Composite class extending the VisionTransformer from timm
         the lstm encodes the fixation sequence
@@ -82,7 +82,7 @@ class ExtensionTimmViTSubimage(nn.Module):
         #     raise ValueError("the attention activation in forward_features is none, check your depth parameter")
         return x, attention
 
-    def forward(self, img, fixation_sequence, collapse_attention_matrix=True, *args, **kwargs):
+    def forward(self, img, fixation_sequence=None, collapse_attention_matrix=True, *args, **kwargs):
         x, attention = self.forward_features(img)
 
         if collapse_attention_matrix and attention is not None:
