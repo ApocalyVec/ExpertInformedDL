@@ -6,10 +6,12 @@ import matplotlib
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
+from torch import nn
 from torch.utils.data import DataLoader
 import torch.nn.utils.rnn as rnn_utils
 from PIL import Image
 
+from eidl.Models.ExtensionModel import ExtensionModelSubimage, get_gradcam
 from eidl.datasets.OCTDataset import OCTDatasetV3
 from eidl.utils.image_utils import process_aoi
 from eidl.utils.iter_utils import collate_fn
@@ -143,13 +145,40 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                     plt.savefig(os.path.join(figure_dir, f"{model}: validation accuracy for {hyperparam_name}.png"))
                 plt.show()
 
+    models = list(reversed(list(models)))
+    best_model, best_model_results, best_model_config_string = get_best_model(models, results_dict)
+    best_model.eval()
+
+    # visualize the training history of the best model ##################################################################
+    plot_train_history(best_model_results, note=f"{best_model_config_string}", save_dir=figure_dir)
+
     # visualize the attention rollout ##################################################################################
     cmap_name = register_cmap_with_alpha('viridis')
 
-    models = list(reversed(list(models)))
+    has_subimage = test_dataset.trial_samples[0].keys()
+    test_dataset.create_aoi(best_model.get_grid_size())
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
-    best_model, best_model_results, best_model_config_string = get_best_model(models, results_dict)
-    best_model.eval()
+    roll_image_folder = os.path.join(figure_dir, 'rollout_images')
+    if not os.path.isdir(roll_image_folder):
+        os.mkdir(roll_image_folder)
+
+    if isinstance(best_model, ExtensionModelSubimage):
+        viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency)
+    else:
+        viz_vit_rollout(best_model, best_model_config_string, device, plot_format, num_plot, test_loader, has_subimage,
+                        figure_dir, cmap_name, rollout_transparency, roll_image_folder, image_stats)
+
+
+def viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency):
+    for sample_count, batch in enumerate(test_loader):
+        print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
+        image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
+        gradcams_subimages = get_gradcam(best_model, image, label_encoded)
+
+
+def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, num_plot, test_loader, has_subimage, figure_dir,
+                    cmap_name, rollout_transparency, roll_image_folder, image_stats):
     if hasattr(best_model, 'patch_height'):
         patch_size = best_model.patch_height, best_model.patch_width
     else:
@@ -157,21 +186,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
     model_depth = best_model.depth
 
-    # visualize the training history of the best model ##################################################################
-    plot_train_history(best_model_results, note=f"{best_model_config_string}", save_dir=figure_dir)
-
-    # register target cmap #########################################################
-    has_subimage = test_dataset.trial_samples[0].keys()
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
-
-    roll_image_folder = os.path.join(figure_dir, 'rollout_images')
-    if not os.path.isdir(roll_image_folder):
-        os.mkdir(roll_image_folder)
-
     with torch.no_grad():
-        test_dataset.create_aoi(best_model.get_grid_size())
-        # epoch_loss, epoch_acc = run_validation(best_model, test_loader, device)
-        # print(f"Test acc: {epoch_acc}")
 
         # use gradcam is model is not a ViT
         vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="max", discard_ratio=0.0)
@@ -185,48 +200,16 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
         for batch in test_loader:
             print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
-            image, label, label_encoded, fix_sequence, aoi_heatmap, image_resized, image_original, *rest = batch
-            if has_subimage:
-                # take out the batches
-                subimage_positions = [x[0] for x in rest[0]]
-                subimage_masks = [x[0].detach().cpu().numpy() for x in image['masks']]  # the masks for the subimages in a a single image
-                subimages = [x[0].detach().cpu().numpy() for x in image['subimages']]  # the subimages in a single image
-            else:
-                subimage_masks = None
-                subimage_positions = None
+            image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
 
-            fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fix_sequence, batch_first=True))
+            rolls = vit_rollout(depth=np.arange(best_model.depth), in_data=image)
 
-            image = any_image_to_tensor(image, device)
-            rolls = vit_rollout(depth=np.arange(best_model.depth), in_data=image, fixation_sequence=fixation_sequence_torch)
 
-            image_original = np.array(image_original[0].numpy(), dtype=np.uint8)
-            image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
-            image_original_size = image_original.shape[:2]
             if plot_format == 'individual':
-                fig_list = []
-                # plot the original image
-                fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                plt.imshow(image_original)  # plot the original image, bgr to rgb
-                plt.axis('off')
-                plt.title(f'#{sample_count}, original image')
-                if figure_dir is not None:
-                    Image.fromarray(image_original).save(os.path.join(figure_dir, f'#{sample_count}, original image.png'))
-                plt.show()
-                fig_list.append(plt2arr(fig))
-                # plot the original image with expert AOI heatmap
-                fig = plt.figure(figsize=(15, 10), constrained_layout=True)
-                plt.imshow(image_original)  # plot the original image
-
-                _aoi_heatmap, *_ = process_aoi(aoi_heatmap[0].numpy(), image_original_size, has_subimage, grid_size=best_model.get_grid_size(),
-                                           subimage_masks=subimage_masks, subimages=subimages, subimage_positions=subimage_positions, patch_size=patch_size)
-                plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
-                plt.axis('off')
-                plt.title(f'#{sample_count}, expert AOI')
-                plt.colorbar()
-                if figure_dir is not None:
-                    plt.savefig(os.path.join(figure_dir, f'#{sample_count}, expert AOI.png'))
-                plt.show()
+                plot_original_image(image_original, image_original_size, aoi_heatmap, sample_count, figure_dir,
+                                    has_subimage, best_model.get_grid_size(),
+                                    subimages, subimage_masks, subimage_positions, patch_size, cmap_name,
+                                    rollout_transparency)
 
                 if type(rolls) is not list:
                     rolls = [rolls]
@@ -237,12 +220,12 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                                                subimage_positions=subimage_positions, patch_size=patch_size, normalize_by_subimage=True)
 
                     plot_image_attention(image_original, rollout_image, _aoi_heatmap, cmap_name='plasma',
-                                         notes=f'#{sample_count} model {model}, roll depth {i}', save_dir=roll_image_folder)
+                                         notes=f'#{sample_count} model {best_model_config_string}, roll depth {i}', save_dir=roll_image_folder)
                     plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['subimage_std'], image_stats['subimage_mean'], cmap_name='plasma',
-                                        notes=f"#{sample_count} model {model}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
+                                        notes=f"#{sample_count} model {best_model_config_string}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
 
                     # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
-                    fig_list.append(plt2arr(fig))
+                    # fig_list.append(plt2arr(fig))
                 # imageio.mimsave(f'gifs/model-{model}_valImageIndex-{sample_count}.gif', fig_list, fps=2)  # TODO expose save dir
             elif plot_format == 'grid' and sample_count < num_plot:
                     axis_original_image, axis_aoi_heatmap, axes_roll = axs[0, sample_count], axs[1, sample_count], axs[2:, sample_count]
@@ -270,3 +253,47 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
 
 
+def process_batch(batch, has_subimage, device):
+    image, label, label_encoded, fix_sequence, aoi_heatmap, image_resized, image_original, *rest = batch
+    if has_subimage:
+        # take out the batches
+        subimage_positions = [x[0] for x in rest[0]]
+        subimage_masks = [x[0].detach().cpu().numpy() for x in
+                          image['masks']]  # the masks for the subimages in a a single image
+        subimages = [x[0].detach().cpu().numpy() for x in image['subimages']]  # the subimages in a single image
+    else:
+        subimage_masks = None
+        subimage_positions = None
+    fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fix_sequence, batch_first=True))
+    image = any_image_to_tensor(image, device)
+    image_original = np.array(image_original[0].numpy(), dtype=np.uint8)
+    image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
+    image_original_size = image_original.shape[:2]
+
+    return image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded
+
+def plot_original_image(image_original, image_original_size,  aoi_heatmap, sample_count, figure_dir, has_subimage, grid_size,
+                        subimages, subimage_masks, subimage_positions, patch_size, cmap_name, rollout_transparency):
+    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
+    plt.imshow(image_original)  # plot the original image, bgr to rgb
+    plt.axis('off')
+    plt.title(f'#{sample_count}, original image')
+    if figure_dir is not None:
+        Image.fromarray(image_original).save(os.path.join(figure_dir, f'#{sample_count}, original image.png'))
+    plt.show()
+    # fig_list.append(plt2arr(fig))
+    # plot the original image with expert AOI heatmap
+    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
+    plt.imshow(image_original)  # plot the original image
+
+    _aoi_heatmap, *_ = process_aoi(aoi_heatmap[0].numpy(), image_original_size, has_subimage,
+                                   grid_size=grid_size,
+                                   subimage_masks=subimage_masks, subimages=subimages,
+                                   subimage_positions=subimage_positions, patch_size=patch_size)
+    plt.imshow(_aoi_heatmap, cmap=cmap_name, alpha=rollout_transparency)
+    plt.axis('off')
+    plt.title(f'#{sample_count}, expert AOI')
+    plt.colorbar()
+    if figure_dir is not None:
+        plt.savefig(os.path.join(figure_dir, f'#{sample_count}, expert AOI.png'))
+    plt.show()

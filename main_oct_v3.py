@@ -33,14 +33,14 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 results_dir = '../temp/results'
 # use_saved_folds = None
 # use_saved_folds = '../temp/results-base-vit-lr-scheduler'
-use_saved_folds = '../temp/results-repaired-pretrained-vit'
-# use_saved_folds = '../temp/results-repaired-inception'
+# use_saved_folds = '../temp/results-repaired-pretrained-vit'
+use_saved_folds = '../temp/results-repaired-inception'
 
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 50
+epochs = 1
 random_seed = 42
 batch_size = 2
 folds = 3
@@ -77,9 +77,9 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-model_names = 'vit_small_patch32_224_in21k_subimage',
+# model_names = 'vit_small_patch32_224_in21k_subimage',
 # model_names = 'base_subimage',
-# model_names = 'inception_v4_subimage',
+model_names = 'inception_v4_subimage',
 
 grid_search_params = {
     'vit_small_patch32_224_in21k_subimage': {
@@ -179,7 +179,8 @@ if __name__ == '__main__':
 
         optimizer = optim.Adam(model.parameters(), lr=lr)
         # optimizer = optim.SGD(model.parameters(), lr=lr)
-        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
+        # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
+        scheduler = None
 
         criterion = nn.CrossEntropyLoss()
 
