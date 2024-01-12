@@ -56,7 +56,8 @@ def parse_model_parameter(model_config_string: str, parameter_name: str):
     if parameter_name == 'dist':
         return parameter_string.strip(f'{parameter_name}-')
     elif parameter_name in ['alpha', 'dist', 'depth', 'lr']:
-        return float(parameter_string.strip(f'{parameter_name}-'))
+        temp = parameter_string.strip(f'{parameter_name}-')
+        return 0. if temp == 'None' else float(temp)
     elif parameter_name == 'model':
         return model_config_string[:model_config_string.find('_alpha')].split('-')[1]
     else:

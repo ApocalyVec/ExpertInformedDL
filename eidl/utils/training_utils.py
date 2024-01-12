@@ -315,7 +315,8 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
         print('*' * 100)
         train_loss, train_acc = run_one_epoch_oct('train', model, train_loader, optimizer=optimizer, device=device, model_config_string=model_config_string, criterion=criterion,
                                                 dist=dist, alpha=alpha, l2_weight=l2_weight, epoch_i=epoch, *args, **kwargs)
-        lr_scheduler.step()
+        if lr_scheduler is not None:
+            lr_scheduler.step()
         train_loss_list.append(train_loss)
         train_acc_list.append(train_acc)
         valid_loss, valid_acc = run_one_epoch_oct('val', model, valid_loader, device=device, model_config_string=model_config_string, criterion=criterion,

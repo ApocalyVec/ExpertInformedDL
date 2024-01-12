@@ -60,8 +60,8 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
     results_dict, model_config_strings = parse_training_results(results_dir)
 
-    np.random.choice([x['name'] for x in test_dataset.trial_samples if x['label'] == 'G'], size=16)
-    np.random.choice([x['name'] for x in test_dataset.trial_samples if x['label'] == 'S'], size=16)
+    # np.random.choice([x['name'] for x in test_dataset.trial_samples if x['label'] == 'G'], size=16, replace=False)
+    # np.random.choice([x['name'] for x in test_dataset.trial_samples if x['label'] == 'S'], size=16, replace=False)
 
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
 
@@ -156,7 +156,6 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     cmap_name = register_cmap_with_alpha('viridis')
 
     has_subimage = test_dataset.trial_samples[0].keys()
-    test_dataset.create_aoi(best_model.get_grid_size())
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
     roll_image_folder = os.path.join(figure_dir, 'rollout_images')
@@ -174,11 +173,14 @@ def viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap
     for sample_count, batch in enumerate(test_loader):
         print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
         image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
-        gradcams_subimages = get_gradcam(best_model, image, label_encoded)
+        gradcams_subimages = get_gradcam(best_model, image, label_encoded.to(device))
 
+        print('')
 
 def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, num_plot, test_loader, has_subimage, figure_dir,
                     cmap_name, rollout_transparency, roll_image_folder, image_stats):
+    test_loader.dataset.create_aoi(best_model.get_grid_size())
+
     if hasattr(best_model, 'patch_height'):
         patch_size = best_model.patch_height, best_model.patch_width
     else:

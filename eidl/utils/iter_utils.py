@@ -21,7 +21,7 @@ def collate_fn(batch):
     #     aoi_heatmap = None
     # else:
     fixation_sequence = [torch.FloatTensor(item['fix_seq']) for item in batch]
-    aoi_heatmap = torch.stack([torch.FloatTensor(item['aoi']) for item in batch], dim=0)
+    aoi_heatmap = torch.stack([torch.FloatTensor(item['aoi']) for item in batch], dim=0) if 'aoi' in batch[0].keys() else None
     image_resized = torch.stack([torch.FloatTensor(item['image']) for item in batch], dim=0)
     # image_original = torch.stack([torch.FloatTensor(item['original_image']) for item in batch], dim=0)
     image_original = [torch.FloatTensor(item['original_image']) for item in batch]
