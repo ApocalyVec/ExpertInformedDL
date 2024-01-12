@@ -47,6 +47,8 @@ folds = 3
 test_size = 0.1
 val_size = 0.14
 
+l2_weight = 1e-5
+
 # grid search hyper-parameters ##################################
 ################################################################
 # depths = 1, 3
@@ -184,7 +186,7 @@ if __name__ == '__main__':
         valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
         train_loss_list, train_acc_list, valid_loss_list, valid_acc_list = train_oct_model(
-            model, model_config_string, train_loader, valid_loader,  optimizer=optimizer, results_dir=results_dir, num_epochs=epochs,
-            alpha=alpha, dist=aoi_loss_dist, l2_weight=None, class_weights=class_weights, lr_scheduler=scheduler)
+            model, model_config_string, train_loader, valid_loader, results_dir=results_dir, optimizer=optimizer, num_epochs=epochs,
+            alpha=alpha, dist=aoi_loss_dist, l2_weight=l2_weight, class_weights=class_weights)
 
     # viz_oct_results(results_dir, test_image_path, test_image_main, batch_size, image_size, n_jobs=n_jobs)
