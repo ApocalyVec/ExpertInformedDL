@@ -117,29 +117,39 @@ def get_trained_model(device, model_param):
     return model, image_mean, image_std, image_size, compound_label_encoder
 
 def get_subimage_model(*args, **kwargs):
-    github_file_url = "https://raw.githubusercontent.com/ApocalyVec/ExpertInformedDL/master/trained_model/0.0.2"
-    model_url = f"{github_file_url}/model.pt"
     temp_dir = tempfile.gettempdir()
-    model_file_path = os.path.join(temp_dir, "subimage_model.pt")
-    dataset_path = os.path.join(temp_dir, "oct_reports_info.p")
 
-    if not os.path.exists(model_file_path):
-        urllib.request.urlretrieve(model_url, model_file_path)
-    vit_model = torch.load(model_file_path)
+    # get the vit model
+    vit_path = os.path.join(temp_dir, "subimage_model.pt")
+    if not os.path.exists(vit_path):
+        print("Downloading the model...")
+        gdown.download("https://drive.google.com/file/d/1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU/view?usp=sharing", output=vit_path, quiet=False)
+    vit_model = torch.load(vit_path)
     print("Model downloaded and loaded.")
-
     patch_size = vit_model.patch_height, vit_model.patch_width
 
+    # get the inception model
+
+    # download the compound label encoder
+    compound_label_encoder_path = os.path.join(temp_dir, "compound_label_encoder.p")
+    if not os.path.exists(compound_label_encoder_path):
+        print("Downloading the compound label encoder...")
+        gdown.download("https://drive.google.com/file/d/1akvbrkGGclsva9wQyccgV_JTG3Kud09e/view?usp=sharing", output=compound_label_encoder_path, quiet=False)
+    compound_label_encoder = pickle.load(open(compound_label_encoder_path, 'rb'))
+
     # get the dataset
+    dataset_path = os.path.join(temp_dir, "oct_reports_info.p")
     if not os.path.exists(dataset_path):
         print("Downloading the dataset...")
-
         gdown.download("https://drive.google.com/uc?id=1V2-jSmEKl-7xzvleYRoDZJAdAQP7be_G", output=dataset_path, quiet=False)
     from eidl.utils.SubimageHandler import SubimageHandler
     data = pickle.load(open(dataset_path, 'rb'))
+
+    # create the subimage handler
     subimage_handler = SubimageHandler()
     subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
     subimage_handler.models['vit'] = vit_model
+    subimage_handler.compound_label_encoder = compound_label_encoder
 
     return subimage_handler
 
@@ -200,3 +210,22 @@ def parse_training_results(results_dir):
         results_dict[model_config_string] = {'model_config_string': model_config_string, 'train_accs': results[:, 0], 'train_losses': results[:, 1], 'val_accs': results[:, 2], 'val_losses': results[:, 3], 'test_acc': test_acc, 'model': model}  # also save the model
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
     return results_dict, model_config_strings
+
+
+from prettytable import PrettyTable
+
+
+def count_parameters(model):
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        params = parameter.numel()
+        table.add_row([name, params])
+        total_params += params
+    print(table)
+    print(f"Total Trainable Params: {total_params}")
+    return total_params
+
+

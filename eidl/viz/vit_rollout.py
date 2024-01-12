@@ -70,7 +70,7 @@ def rollout(depth, grid_size, attentions, discard_ratio, head_fusion, normalize=
                 if not return_raw_attention:
                     rtn = result[0, 0, 1:]  # Look at the total attention between the class token, # and the image patches
                 else:
-                    rtn = rtn[0]
+                    rtn = result[0]
                 if normalize and rtn.max() > 0:
                     rtn = rtn / torch.max(rtn)
 

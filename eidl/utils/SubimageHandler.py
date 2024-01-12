@@ -3,11 +3,12 @@ import warnings
 
 import cv2
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
 
 from eidl.Models.ExtensionModel import get_gradcam
 from eidl.utils.iter_utils import collate_fn, collate_subimages
-from eidl.utils.image_utils import preprocess_subimages, z_norm_subimages, process_aoi, patchify
+from eidl.utils.image_utils import preprocess_subimages, z_norm_subimages, process_aoi, patchify, process_grad_cam
 from eidl.utils.torch_utils import any_image_to_tensor
 from eidl.viz.vit_rollout import VITAttentionRollout
 from eidl.viz.viz_utils import plot_subimage_rolls, plot_image_attention, register_cmap_with_alpha
@@ -20,6 +21,7 @@ class SubimageHandler:
         self.subimage_std = None
         self.image_data_dict = None
         self.models = {}
+        self.compound_label_encoder = None
         self.attention_cache = {}  # holds the attention for each image, so that it does not have to be recomputed
 
 
@@ -106,7 +108,7 @@ class SubimageHandler:
         -------
         {"original_image_attention": rollout_image, "subimage_attention": subimage_roll, "subimage_position": subimage_positions}
         """
-        assert self.model is not None, "model must be provided by setting it to the model attribute of the SubimageHandler class"
+        assert model_name in self.models, "model must be provided by setting it to the model attribute of the SubimageHandler class"
         assert image_name in self.image_data_dict.keys(), f"image name {image_name} is not in the image data dict"
         sample = self.image_data_dict[image_name]
         if source_attention is not None:
@@ -117,8 +119,8 @@ class SubimageHandler:
 
         image_original_size = sample['original_image'].shape[:-1]
 
-        device = next(self.model.parameters()).device
-        patch_size = self.model.patch_height, self.model.patch_width
+        model = self.models[model_name]
+        device = next(model.parameters()).device
 
         # run the model on the image
         image, *_ = collate_subimages([sample])
@@ -127,21 +129,23 @@ class SubimageHandler:
         subimages = [x[0].detach().cpu().numpy() for x in image['subimages']]  # the subimages in a single image
         subimage_positions = [x['position'] for x in sample['sub_images']]
 
-        # get the one-hot encoded label
-        label = sample['label']
-
-        if (image_name, discard_ratio) in self.attention_cache.keys():
-            attention = self.attention_cache[(model_name, image_name, discard_ratio)]
+        if model_name == 'inception':
+            if (image_name, discard_ratio) in self.attention_cache.keys():
+                original_image_attn, subimage_mode_attn = self.attention_cache[(model_name, image_name)]
+            else:
+                label = self.compound_label_encoder.encode([sample['label']])[1]
+                subimage_model_attn = get_gradcam(model, image, target=torch.FloatTensor(label).to(device))
+                subimage_model_attn = [x[0] for x in subimage_model_attn]  # get rid of the batch dimension
+                original_image_attn = process_grad_cam(subimages, subimage_masks, subimage_positions, subimage_model_attn, image_original_size)
+                self.attention_cache[(model_name, image_name)] = (original_image_attn, subimage_model_attn)
         else:
-            model = self.models[model_name]
-            if model == 'inception':
-                grad_cam = get_gradcam(model, image, target=label.to(device))
+            patch_size = model.patch_height, model.patch_width
+            if (model_name, image_name, discard_ratio) in self.attention_cache.keys():
+                attention = self.attention_cache[(model_name, image_name, discard_ratio)]
             else:
                 vit_rollout = VITAttentionRollout(model, device=device, attention_layer_name='attn_drop', discard_ratio=discard_ratio, *args, **kwargs)
-                attention = vit_rollout(depth=model.depth, in_data=image, fixation_sequence=None, return_raw_attention=True)
-        self.attention_cache[(model_name, image_name, discard_ratio)] = attention
-
-        if model_name == 'vit':
+                attention = vit_rollout(depth=model.depth-1, in_data=image, fixation_sequence=None, return_raw_attention=True)
+                self.attention_cache[(model_name, image_name, discard_ratio)] = attention
             if source_attention is not None:
                 attention = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
                 source_attention_patchified = []
@@ -166,10 +170,10 @@ class SubimageHandler:
                 attention = attention * (1 - np.eye(len(attention)))
                 attention = np.einsum('i,ij->j', source_attention_patchified, attention)
 
-                _attention = np.zeros(len(source_attention_patchified))
-                for i in range(len(source_attention_patchified)):
-                    _attention += source_attention_patchified[i] * attention[i, :]
-                attention = _attention
+                # _attention = np.zeros(len(source_attention_patchified))
+                # for i in range(len(source_attention_patchified)):
+                #     _attention += source_attention_patchified[i] * attention[i, :]
+                # attention = _attention
 
                 # bayesian inverse relation ##########################################
                 # attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
@@ -181,22 +185,18 @@ class SubimageHandler:
                 # get the subimage attention from the source
             else:  # if the source attention is not provided, use the model attention
                 attention = attention[0, 1:]  # get the attention from the class token to the subimages
-            original_image_attention, subimage_attention = process_aoi(attention, image_original_size, True,
-                                                       grid_size=self.model.get_grid_size(),
-                                                       subimage_masks=subimage_masks, subimages=subimages,
-                                                       subimage_positions=subimage_positions, patch_size=patch_size,
-                                                       **kwargs)
-        else:
-            # model is inception and source attention is not provided
-            # TODO implement put the gradcam back in the original image, take example from AOI
-            original_image_attention, subimage_attention = None, None  # input should be grad_cam
-            pass
+            original_image_attn, subimage_model_attn = process_aoi(attention, image_original_size, True,
+                                                                   grid_size=model.get_grid_size(),
+                                                                   subimage_masks=subimage_masks, subimages=subimages,
+                                                                   subimage_positions=subimage_positions, patch_size=patch_size, **kwargs)
+
+
         if is_plot_results:
             image_original = sample['original_image']
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
             # cmap_name = register_cmap_with_alpha('viridis')
-            plot_image_attention(image_original, original_image_attention, source_attention, 'plasma',
+            plot_image_attention(image_original, original_image_attn, source_attention, 'plasma',
                                  notes=f'{notes}{image_name}', overlay_alpha=overlay_alpha, save_dir=save_dir)
-            plot_subimage_rolls(subimage_attention, subimages, subimage_positions, self.subimage_std, self.subimage_mean,
+            plot_subimage_rolls(subimage_model_attn, subimages, subimage_positions, self.subimage_std, self.subimage_mean,
                                 'plasma', notes=f"{notes}{image_name}", overlay_alpha=overlay_alpha, save_dir=save_dir)
-        return {"original_image_attention": original_image_attention, "subimage_attention": subimage_attention, "subimage_position": subimage_positions}
+        return {"original_image_attention": original_image_attn, "subimage_attention": subimage_model_attn, "subimage_position": subimage_positions}
