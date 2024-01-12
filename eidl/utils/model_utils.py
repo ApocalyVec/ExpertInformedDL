@@ -120,28 +120,33 @@ def get_subimage_model(*args, **kwargs):
     temp_dir = tempfile.gettempdir()
 
     # get the vit model
-    vit_path = os.path.join(temp_dir, "subimage_model.pt")
+    vit_path = os.path.join(temp_dir, "vit.pt")
     if not os.path.exists(vit_path):
-        print("Downloading the model...")
-        gdown.download("https://drive.google.com/file/d/1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU/view?usp=sharing", output=vit_path, quiet=False)
+        print("Downloading vit model...")
+        gdown.download(id='1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', output=vit_path, quiet=False)
     vit_model = torch.load(vit_path)
     print("Model downloaded and loaded.")
     patch_size = vit_model.patch_height, vit_model.patch_width
 
     # get the inception model
+    inception_path = os.path.join(temp_dir, "inception.pt")
+    if not os.path.exists(inception_path):
+        print("Downloading inception model...")
+        gdown.download(id='13x_lyhy3NYefcon1Pxq-R2oATYlQrYV6', output=inception_path, quiet=False)
+    inception_model = torch.load(inception_path)
 
     # download the compound label encoder
     compound_label_encoder_path = os.path.join(temp_dir, "compound_label_encoder.p")
     if not os.path.exists(compound_label_encoder_path):
         print("Downloading the compound label encoder...")
-        gdown.download("https://drive.google.com/file/d/1akvbrkGGclsva9wQyccgV_JTG3Kud09e/view?usp=sharing", output=compound_label_encoder_path, quiet=False)
+        gdown.download(id='1akvbrkGGclsva9wQyccgV_JTG3Kud09e', output=compound_label_encoder_path, quiet=False)
     compound_label_encoder = pickle.load(open(compound_label_encoder_path, 'rb'))
 
     # get the dataset
     dataset_path = os.path.join(temp_dir, "oct_reports_info.p")
     if not os.path.exists(dataset_path):
         print("Downloading the dataset...")
-        gdown.download("https://drive.google.com/uc?id=1V2-jSmEKl-7xzvleYRoDZJAdAQP7be_G", output=dataset_path, quiet=False)
+        gdown.download(id='1du83qoQq05AWT6QXHp_ti4I4yIWariHQ', output=dataset_path, quiet=False)
     from eidl.utils.SubimageHandler import SubimageHandler
     data = pickle.load(open(dataset_path, 'rb'))
 
@@ -149,6 +154,7 @@ def get_subimage_model(*args, **kwargs):
     subimage_handler = SubimageHandler()
     subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
     subimage_handler.models['vit'] = vit_model
+    subimage_handler.models['inception'] = inception_model
     subimage_handler.compound_label_encoder = compound_label_encoder
 
     return subimage_handler

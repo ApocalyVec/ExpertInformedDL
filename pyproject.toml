@@ -25,7 +25,7 @@ dependencies= [
     "torchsummary",
     "einops",
     "timm",
-    "gdown",
+    "gdown==4.6.0",
     "imageio"
 ]
 
