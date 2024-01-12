@@ -123,3 +123,32 @@ def register_cmap_with_alpha(cmap_name):
     # register this new colormap with matplotlib
     plt.register_cmap(cmap=map_object)
     return cmap_rtn
+
+
+def plot_attention_overlay(image, attention, normalize=True, cmap_name='plasma',
+                           overlay_alpha=0.75, title='', show=True, save_to=None):
+    if np.max(attention) > 0 and normalize:
+        attention = attention / np.max(attention)
+
+    plt.subplot(1, 3, 1)
+    plt.imshow(image, cmap=cmap_name)
+    plt.imshow(attention, cmap=cmap_name, alpha=overlay_alpha * attention)
+    plt.axis('off')
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(image)
+    plt.axis('off')
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(attention, cmap=cmap_name)
+    plt.colorbar()
+    plt.axis('off')
+
+    plt.suptitle(f'{title}')
+
+    if show:
+        plt.show()
+
+    if save_to is not None:
+        plt.savefig(save_to)
+

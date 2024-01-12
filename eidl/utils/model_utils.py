@@ -119,13 +119,23 @@ def get_trained_model(device, model_param):
 def get_subimage_model(*args, **kwargs):
     temp_dir = tempfile.gettempdir()
     version = '_0.0.11'
+    # make a temp dir with version number
+    temp_dir = os.path.join(temp_dir, f"eidl{version}")
+
+    # get the dataset
+    dataset_path = os.path.join(temp_dir, f"oct_reports_info{version}.p")
+    if not os.path.exists(dataset_path):
+        print("Downloading the dataset...")
+        gdown.download(id='1du83qoQq05AWT6QXHp_ti4I4yIWariHQ', output=dataset_path, quiet=False)
+    data = pickle.load(open(dataset_path, 'rb'))
 
     # get the vit model
     vit_path = os.path.join(temp_dir, f"vit{version}.pt")
     if not os.path.exists(vit_path):
         print("Downloading vit model...")
         gdown.download(id='1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', output=vit_path, quiet=False)
-    vit_model = torch.load(vit_path)
+    vit_model = load_model(vit_path)  # this is to load the model into the cache
+
     print("Model downloaded and loaded.")
     patch_size = vit_model.patch_height, vit_model.patch_width
 
@@ -143,15 +153,8 @@ def get_subimage_model(*args, **kwargs):
         gdown.download(id='1akvbrkGGclsva9wQyccgV_JTG3Kud09e', output=compound_label_encoder_path, quiet=False)
     compound_label_encoder = pickle.load(open(compound_label_encoder_path, 'rb'))
 
-    # get the dataset
-    dataset_path = os.path.join(temp_dir, f"oct_reports_info{version}.p")
-    if not os.path.exists(dataset_path):
-        print("Downloading the dataset...")
-        gdown.download(id='1du83qoQq05AWT6QXHp_ti4I4yIWariHQ', output=dataset_path, quiet=False)
-    from eidl.utils.SubimageHandler import SubimageHandler
-    data = pickle.load(open(dataset_path, 'rb'))
-
     # create the subimage handler
+    from eidl.utils.SubimageHandler import SubimageHandler
     subimage_handler = SubimageHandler()
     subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
     subimage_handler.models['vit'] = vit_model
@@ -236,3 +239,27 @@ def count_parameters(model):
     return total_params
 
 
+def download_load_model(file_id, temp_dir):
+    try:
+        _gdown(file_id, temp_dir)
+    except Exception as e:
+        print(f"Downloading the model from {file_id} failed with error {e}")
+        raise e
+    model = load_model(model_path)
+    return model
+
+
+def load_model(model_path):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Loading model from {model_path} onto {device}")
+    model = torch.load(model_path, map_location=device)
+    return model
+
+def _gdown(file_id, destination):
+    """Download a Google Drive file identified by the file_id.
+    Args:
+        file_id (str): the file identifier.
+        destination (str): the destination path.
+    """
+    if not os.path.exists(destination):
+        gdown.download(id=file_id, output=destination, quiet=False)

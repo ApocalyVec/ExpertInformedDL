@@ -12,13 +12,12 @@ from eidl.Models.ExtensionTimmViTSubimage import ExtensionTimmViTSubimage
 from eidl.utils.torch_utils import any_image_to_tensor
 
 
-def rollout(depth, grid_size, attentions, discard_ratio, head_fusion, normalize=True, return_raw_attention=False, *args, **kwargs):
+def rollout(depth, attentions, discard_ratio, head_fusion, normalize=True, return_raw_attention=False, *args, **kwargs):
     """
 
     Parameters
     ----------
     depth
-    grid_size
     attentions
     discard_ratio
     head_fusion
@@ -86,7 +85,7 @@ def rollout(depth, grid_size, attentions, discard_ratio, head_fusion, normalize=
 
 class VITAttentionRollout:
     def __init__(self, model, device, attention_layer_name='attn_drop', head_fusion="mean",
-                 discard_ratio=0.9, *args, **kwargs):
+                 discard_ratio=0.9, vit_model=None, *args, **kwargs):
         """
 
 
@@ -101,6 +100,7 @@ class VITAttentionRollout:
         kwargs
         """
         self.model = model
+        self.vit_model = vit_model
         self.device = device
         self.head_fusion = head_fusion
         self.discard_ratio = discard_ratio
@@ -116,6 +116,13 @@ class VITAttentionRollout:
             raise ValueError(f"Model depth ({self.model.depth}) does not match attention layer count {self.attention_layer_count}")
         self.attentions = []
 
+        self.is_reset_fuse_attn = isinstance(self.model, ExtensionTimmViTSubimage) or isinstance(self.vit_model, VisionTransformer)
+        if self.is_reset_fuse_attn and isinstance(self.model, ExtensionTimmViTSubimage):
+            self.block_count = len(self.model.vision_transformer.blocks)
+            self.vit_model = self.model.vision_transformer
+        elif self.is_reset_fuse_attn and isinstance(self.vit_model, VisionTransformer):
+            self.block_count = len(self.vit_model.blocks)
+
     def get_attention(self, module, input, output):
         if isinstance(module, ExpertAttentionViTAttention):
             attention_output = output[1]
@@ -128,16 +135,16 @@ class VITAttentionRollout:
             raise ValueError(f"Given depth ({depth}) is greater than the number of attenion layers in the model ({self.attention_layer_count})")
         self.attentions = []
 
-        if isinstance(self.model, ExtensionTimmViTSubimage):
+        if self.is_reset_fuse_attn:
             # not use fuse attention so that the attn_drop is called
-            for i in range(len(self.model.vision_transformer.blocks)):
-                self.model.vision_transformer.blocks[i].attn.fused_attn = False
+            for i in range(self.block_count):
+                self.vit_model.blocks[i].attn.fused_attn = False
 
         output = self.model(in_data, *args, **kwargs)
 
-        if isinstance(self.model, ExtensionTimmViTSubimage):
+        if self.is_reset_fuse_attn:
             # revert the fuse attention
-            for i in range(len(self.model.vision_transformer.blocks)-1):
-                self.model.vision_transformer.blocks[i].attn.fused_attn = True
+            for i in range(self.block_count-1):
+                self.vit_model.blocks[i].attn.fused_attn = True
 
-        return rollout(depth, self.model.get_grid_size(), self.attentions, self.discard_ratio, self.head_fusion, *args, **kwargs)
+        return rollout(depth, self.attentions, self.discard_ratio, self.head_fusion, *args, **kwargs)
