@@ -50,7 +50,7 @@ def test_gradcam():
     model_type = 'inception'
     image_name = 'RLS_036_OS_TC'
     # compute the static attention for the given image
-    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name='vit')
+    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_type)
     assert (model_type, image_name) in subimage_handler.attention_cache
     subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_type)
 
