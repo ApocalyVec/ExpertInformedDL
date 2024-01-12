@@ -49,7 +49,7 @@ def get_gradcam(model, image, target, criterion=nn.CrossEntropyLoss):
         gradcam_aggregated = torch.zeros(b, *subimage.shape[2:], dtype=torch.float32).to(subimage.device)
         for fmap, grad in zip(features, gradients):  # for all the auxiliary heads
             grad_weights = torch.mean(grad, [2, 3], keepdim=True)
-            gradcam = torch.relu(torch.sum(grad_weights * fmap, dim=1)).squeeze()
+            gradcam = torch.relu(torch.sum(grad_weights * fmap, dim=1))
             gradcam = normalize_by_sample(gradcam).detach()
             for batch_i in range(b):
                 # upsample to match the original image size
@@ -57,7 +57,7 @@ def get_gradcam(model, image, target, criterion=nn.CrossEntropyLoss):
 
         # normalize again because we have summed over all the heads
         gradcam_aggregated = normalize_by_sample(gradcam_aggregated)
-        gradcams_subimages.append(gradcam_aggregated)
+        gradcams_subimages.append(gradcam_aggregated.detach().cpu().numpy())
         # plt.imshow(gradcam_aggregated[0].detach().cpu().numpy())
         # plt.colorbar()
         # plt.show()

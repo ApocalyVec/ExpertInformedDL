@@ -13,7 +13,7 @@ from PIL import Image
 
 from eidl.Models.ExtensionModel import ExtensionModelSubimage, get_gradcam
 from eidl.datasets.OCTDataset import OCTDatasetV3
-from eidl.utils.image_utils import process_aoi
+from eidl.utils.image_utils import process_aoi, process_grad_cam
 from eidl.utils.iter_utils import collate_fn
 from eidl.utils.model_utils import parse_model_parameter, get_best_model, parse_training_results
 from eidl.utils.torch_utils import any_image_to_tensor
@@ -163,19 +163,25 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
         os.mkdir(roll_image_folder)
 
     if isinstance(best_model, ExtensionModelSubimage):
-        viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency)
+        viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency, roll_image_folder, image_stats)
     else:
         viz_vit_rollout(best_model, best_model_config_string, device, plot_format, num_plot, test_loader, has_subimage,
                         figure_dir, cmap_name, rollout_transparency, roll_image_folder, image_stats)
 
 
-def viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency):
+def viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency, roll_image_folder, image_stats):
     for sample_count, batch in enumerate(test_loader):
         print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
         image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
         gradcams_subimages = get_gradcam(best_model, image, label_encoded.to(device))
-
-        print('')
+        gradcams_subimages = [x[0] for x in gradcams_subimages]  # get rid of the batch dimension
+        aoi_recovered = process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_original_size)
+        plot_image_attention(image_original, aoi_recovered, None, cmap_name='plasma',
+                             notes=f'#{sample_count} inception-v4', save_dir=roll_image_folder)
+        plot_subimage_rolls(gradcams_subimages, subimages, subimage_positions, image_stats['subimage_std'],
+                            image_stats['subimage_mean'], cmap_name='plasma',
+                            notes=f"#{sample_count} inception-v4",
+                            overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
 
 def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, num_plot, test_loader, has_subimage, figure_dir,
                     cmap_name, rollout_transparency, roll_image_folder, image_stats):
