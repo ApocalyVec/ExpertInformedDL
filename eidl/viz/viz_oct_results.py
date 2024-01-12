@@ -174,7 +174,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
         # print(f"Test acc: {epoch_acc}")
 
         # use gradcam is model is not a ViT
-        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="max", discard_ratio=0.9)
+        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="max", discard_ratio=0.0)
         sample_count = 0
 
         if plot_format == 'grid':
@@ -228,6 +228,8 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                     plt.savefig(os.path.join(figure_dir, f'#{sample_count}, expert AOI.png'))
                 plt.show()
 
+                if type(rolls) is not list:
+                    rolls = [rolls]
                 for i, roll in enumerate(rolls):
                     rollout_image, subimage_roll = process_aoi(roll, image_original_size, has_subimage,
                                                grid_size=best_model.get_grid_size(),
