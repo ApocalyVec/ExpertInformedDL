@@ -118,9 +118,10 @@ def get_trained_model(device, model_param):
 
 def get_subimage_model(*args, **kwargs):
     temp_dir = tempfile.gettempdir()
+    version = '_0.0.11'
 
     # get the vit model
-    vit_path = os.path.join(temp_dir, "vit.pt")
+    vit_path = os.path.join(temp_dir, f"vit{version}.pt")
     if not os.path.exists(vit_path):
         print("Downloading vit model...")
         gdown.download(id='1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', output=vit_path, quiet=False)
@@ -129,21 +130,21 @@ def get_subimage_model(*args, **kwargs):
     patch_size = vit_model.patch_height, vit_model.patch_width
 
     # get the inception model
-    inception_path = os.path.join(temp_dir, "inception.pt")
+    inception_path = os.path.join(temp_dir, f"inception{version}.pt")
     if not os.path.exists(inception_path):
         print("Downloading inception model...")
         gdown.download(id='13x_lyhy3NYefcon1Pxq-R2oATYlQrYV6', output=inception_path, quiet=False)
     inception_model = torch.load(inception_path)
 
     # download the compound label encoder
-    compound_label_encoder_path = os.path.join(temp_dir, "compound_label_encoder.p")
+    compound_label_encoder_path = os.path.join(temp_dir, f"compound_label_encoder{version}.p")
     if not os.path.exists(compound_label_encoder_path):
         print("Downloading the compound label encoder...")
         gdown.download(id='1akvbrkGGclsva9wQyccgV_JTG3Kud09e', output=compound_label_encoder_path, quiet=False)
     compound_label_encoder = pickle.load(open(compound_label_encoder_path, 'rb'))
 
     # get the dataset
-    dataset_path = os.path.join(temp_dir, "oct_reports_info.p")
+    dataset_path = os.path.join(temp_dir, f"oct_reports_info{version}.p")
     if not os.path.exists(dataset_path):
         print("Downloading the dataset...")
         gdown.download(id='1du83qoQq05AWT6QXHp_ti4I4yIWariHQ', output=dataset_path, quiet=False)
