@@ -17,13 +17,15 @@ def plt2arr(fig, draw=True):
     rgba_arr = np.frombuffer(rgba_buf, dtype=np.uint8).reshape((h,w,4))
     return rgba_arr
 
-def plot_train_history(history, note=''):
+def plot_train_history(history, note='', save_dir=None):
     plt.plot(history['train_accs'])
     plt.plot(history['val_accs'])
     plt.title('model accuracy ' + note)
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='lower left')
+    if save_dir is not None:
+        plt.savefig(os.path.join(save_dir, f'{note}_acc.png'))
     plt.show()
 
     # summarize history for loss
@@ -33,6 +35,8 @@ def plot_train_history(history, note=''):
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='lower left')
+    if save_dir is not None:
+        plt.savefig(os.path.join(save_dir, f'{note}_loss.png'))
     plt.show()
 
 
@@ -89,7 +93,8 @@ def plot_image_attention(image_original, model_attention, source_attention, cmap
 
     plt.subplot(2, 2, 2)
     plt.imshow(image_original)  # plot the original image
-    plt.imshow(model_attention, cmap=cmap_name, alpha=overlay_alpha * model_attention / np.max(model_attention))
+    if np.max(model_attention) > 0:
+        plt.imshow(model_attention, cmap=cmap_name, alpha=overlay_alpha * model_attention / np.max(model_attention))
     plt.axis('off')
     plt.title("Model Attention Overlay")
 

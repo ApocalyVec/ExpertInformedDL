@@ -322,7 +322,8 @@ def train_oct_model(model, model_config_string, train_loader, valid_loader, opti
                                                   dist=dist, alpha=alpha, l2_weight=l2_weight, epoch_i=epoch,*args, **kwargs)
         valid_loss_list.append(valid_loss)
         valid_acc_list.append(valid_acc)
-        print("training loss: {:.4f}, training acc: {:.4f}; validation loss {:.4f}, validation acc: {:.4f}".format(train_loss, train_acc, valid_loss, valid_acc))
+        print("training loss: {:.4f}, training acc: {:.4f}; validation loss {:.4f}, validation acc: {:.4f}, current lr: {:.8f}"
+              "".format(train_loss, train_acc, valid_loss, valid_acc, optimizer.param_groups[0]['lr']))
 
         with open(os.path.join(results_dir, f'log_{model_config_string}.txt'), 'a+') as file:
             file.write('epoch:{:d} / {:d}\n'.format(epoch, num_epochs))

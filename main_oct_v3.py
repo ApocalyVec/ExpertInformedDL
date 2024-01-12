@@ -32,7 +32,8 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 
 results_dir = '../temp/results'
 # use_saved_folds = None
-use_saved_folds = '../temp/results-base-vit-lr-scheduler'
+# use_saved_folds = '../temp/results-base-vit-lr-scheduler'
+use_saved_folds = '../temp/results-repaired-pretrained-vit'
 
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
@@ -73,8 +74,8 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-# model_names = 'vit_small_patch32_224_in21k_subimage',
-model_names = 'base_subimage',
+model_names = 'vit_small_patch32_224_in21k_subimage',
+# model_names = 'base_subimage',
 # model_names = 'inception_v4_subimage',
 
 grid_search_params = {

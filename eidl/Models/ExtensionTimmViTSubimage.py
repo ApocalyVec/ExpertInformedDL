@@ -4,6 +4,7 @@ from torch import nn
 from timm.models.vision_transformer import VisionTransformer, Block, Attention
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+import torch.nn.functional as F
 
 from eidl.Models.ExtensionTimmViT import ExpertTimmViTBlock
 
@@ -22,6 +23,7 @@ class ExtensionTimmViTSubimage(nn.Module):
         super().__init__()
         self.vision_transformer = vision_transformer
         self.depth = len(vision_transformer.blocks)
+        self.num_heads = self.vision_transformer.blocks[0].attn.num_heads
         self.num_classes = vision_transformer.num_classes  # copy the num classes from the VisionTransformer but not using its mlp
 
         self.lstm_hidden_dim = rnn_hidden_dim
@@ -47,7 +49,7 @@ class ExtensionTimmViTSubimage(nn.Module):
         #     Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=self.vision_transformer.patch_embed.patch_size[0], p2=self.vision_transformer.patch_embed.patch_size[1]),
         #     nn.Linear(np.prod(self.vision_transformer.patch_embed.patch_size) * 3, self.vision_transformer.embed_dim),  # times three for color channels
         # )
-        self.mask_token = nn.Parameter(torch.zeros(self.vision_transformer.embed_dim))
+        # self.mask_token = nn.Parameter(torch.zeros(self.vision_transformer.embed_dim))
         self.patch_height = self.vision_transformer.patch_embed.patch_size[0]
         self.patch_width = self.vision_transformer.patch_embed.patch_size[1]
 
@@ -56,23 +58,29 @@ class ExtensionTimmViTSubimage(nn.Module):
         subimage_xs = [self.vision_transformer.patch_embed(x) for x in img['subimages']]
         subimage_xs = [rearrange(x, 'b h w d -> b (h w) d') for x in subimage_xs]
 
-        # concate the masks
-        masks = torch.cat([rearrange(x, 'b h w -> b (h w)') for x in img['masks']], dim=1)
         x = torch.cat(subimage_xs, dim=1)
-        # apply the mask token
-        x[masks] = self.mask_token
+
+        # concate the masks
 
         # recover a dummy w dimension for the _pos_embed in timm
         x = rearrange(x, 'b (h w) d -> b h w d', w=1)
 
-        x = self.vision_transformer._pos_embed(x)  # TODO use a pos embedding in this class, not rely on dynamic image size in TIMM
+        x = self.vision_transformer._pos_embed(x)  # this will also add the cls token
         x = self.vision_transformer.norm_pre(x)
         # if self.grad_checkpointing and not torch.jit.is_scripting():
         #     x = checkpoint_seq(self.blocks, x)
         # else:
-        x = self.vision_transformer.blocks(x)
+        masks = torch.cat([rearrange(x, 'b h w -> b (h w)') for x in img['masks']], dim=1)
+        masks = F.pad(masks, (x.shape[-2] - masks.shape[-1], 0), value=True)  # class token is always valid
+        masks = torch.einsum('bi,bj->bij', masks, masks)
+        # repeat for the heads
+        masks = repeat(masks, 'b i j -> b h i j', h=self.num_heads)
+
+        x = self.vision_transformer.blocks({'data': x, 'mask': masks})
         if type(x) is tuple:
             x, attention = x
+        elif type(x) is dict:
+            x, attention = x['data'], x['attn']
         else:
             attention = None
         # attention = self.vision_transformer.blocks[-1].attention  # TODO uncomment we keep the attention activation of the last layer

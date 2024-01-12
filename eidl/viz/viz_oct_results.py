@@ -158,13 +158,13 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     model_depth = best_model.depth
 
     # visualize the training history of the best model ##################################################################
-    plot_train_history(best_model_results, note=f"{best_model_config_string}")
+    plot_train_history(best_model_results, note=f"{best_model_config_string}", save_dir=figure_dir)
 
     # register target cmap #########################################################
     has_subimage = test_dataset.trial_samples[0].keys()
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
-    roll_image_folder = os.path.join(figure_dir, 'rollout_images1')
+    roll_image_folder = os.path.join(figure_dir, 'rollout_images')
     if not os.path.isdir(roll_image_folder):
         os.mkdir(roll_image_folder)
 
@@ -174,7 +174,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
         # print(f"Test acc: {epoch_acc}")
 
         # use gradcam is model is not a ViT
-        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="mean", discard_ratio=0.9)
+        vit_rollout = VITAttentionRollout(best_model, device=device, attention_layer_name='attn_drop', head_fusion="max", discard_ratio=0.9)
         sample_count = 0
 
         if plot_format == 'grid':
@@ -195,12 +195,10 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 subimage_masks = None
                 subimage_positions = None
 
-            rolls = []
             fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fix_sequence, batch_first=True))
 
-            for roll_depth in range(best_model.depth):
-                image = any_image_to_tensor(image, device)
-                rolls.append(vit_rollout(depth=roll_depth, in_data=image, fixation_sequence=fixation_sequence_torch))
+            image = any_image_to_tensor(image, device)
+            rolls = vit_rollout(depth=np.arange(best_model.depth), in_data=image, fixation_sequence=fixation_sequence_torch)
 
             image_original = np.array(image_original[0].numpy(), dtype=np.uint8)
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
@@ -231,7 +229,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 plt.show()
 
                 for i, roll in enumerate(rolls):
-                    rollout_image, subimage_roll = process_aoi(rolls[0], image_original_size, has_subimage,
+                    rollout_image, subimage_roll = process_aoi(roll, image_original_size, has_subimage,
                                                grid_size=best_model.get_grid_size(),
                                                subimage_masks=subimage_masks, subimages=subimages,
                                                subimage_positions=subimage_positions, patch_size=patch_size, normalize_by_subimage=True)
