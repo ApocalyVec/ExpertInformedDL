@@ -8,3 +8,4 @@ einops
 timm
 gdown==4.6.0
 imageio
+prettytable
