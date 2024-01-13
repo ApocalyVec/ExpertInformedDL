@@ -40,7 +40,7 @@ use_saved_folds = '../temp/results-repaired-inception'
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 1
+epochs = 50
 random_seed = 42
 batch_size = 2
 folds = 3
@@ -179,8 +179,8 @@ if __name__ == '__main__':
 
         optimizer = optim.Adam(model.parameters(), lr=lr)
         # optimizer = optim.SGD(model.parameters(), lr=lr)
-        # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
-        scheduler = None
+        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
+        # scheduler = None
 
         criterion = nn.CrossEntropyLoss()
 
