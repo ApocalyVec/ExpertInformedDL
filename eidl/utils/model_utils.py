@@ -193,10 +193,10 @@ def count_parameters(model):
     return total_params
 
 def get_subimage_model(*args, **kwargs):
-    temp_dir = tempfile.gettempdir()
-
     # make a temp dir with version number
-    temp_dir = os.path.join(temp_dir, f"eidl_{project_version}")
+    temp_dir = os.path.join(tempfile.gettempdir(), f"eidl_{project_version}")
+    if not os.path.exists(temp_dir):
+        os.mkdir(temp_dir)
 
     # get the dataset
     print("Downloading the dataset...")
@@ -231,13 +231,13 @@ def get_subimage_model(*args, **kwargs):
     return subimage_handler
 
 def download_and_load(file_id: str, temp_dir: str, load_func: Callable):
-    model_path = os.path.join(temp_dir, f"{file_id}.pt")
+    save_path = os.path.join(temp_dir, f"{file_id}")
     try:
-        _gdown(file_id, temp_dir)
+        _gdown(file_id, save_path)
     except Exception as e:
         print(f"Downloading file with id {file_id} failed with error {e}")
         raise e
-    model = load_model(model_path)
+    model = load_func(save_path)
     return model
 
 
