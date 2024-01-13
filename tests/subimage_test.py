@@ -1,15 +1,19 @@
 import os
+import shutil
 import tempfile
 
 import numpy as np
 import pytest
 
 from eidl.utils.model_utils import get_subimage_model, count_parameters
+from params import project_version
 
 
 def test_get_subimage_model():
     # delete the download files from the temp folder
     temp_dir = tempfile.gettempdir()
+
+    # for 0.0.11 and older ####
     vit_path = os.path.join(temp_dir, "vit.pt")
     inception_path = os.path.join(temp_dir, "inception.pt")
     compound_label_encoder_path = os.path.join(temp_dir, "compound_label_encoder.p")
@@ -23,6 +27,11 @@ def test_get_subimage_model():
         os.remove(compound_label_encoder_path)
     if os.path.exists(dataset_path):
         os.remove(dataset_path)
+
+    #####
+    temp_dir = os.path.join(temp_dir, f"eidl_{project_version}")
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
 
     subimage_handler = get_subimage_model(n_jobs=16)
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "expert-informed-dl"
-version = "0.0.12"
+version = "0.0.13"
 authors = [
   { name="Ziheng 'Leo' Li", email="apocalyvec@gmail.com" },
 ]
@@ -12,7 +12,7 @@ description = "Deep learning image classificaiton informed by expert attention"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3"a
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
 ]
@@ -24,10 +24,11 @@ dependencies= [
     "tqdm",
     "torchsummary",
     "einops",
-    "timm",
+    "git+https://github.com/ApocalyVec/pytorch-image-models.git",
     "gdown==4.6.0",
     "imageio",
-    "prettytable"
+    "prettytable",
+    "toml"
 ]
 
 [tool.hatch.build.targets.wheel]
