@@ -131,12 +131,12 @@ class SubimageHandler:
 
         if model_name == 'inception':
             if (image_name, discard_ratio) in self.attention_cache.keys():
-                original_image_attn, subimage_mode_attn = self.attention_cache[(model_name, image_name)]
+                original_image_attn, subimage_model_attn = self.attention_cache[(model_name, image_name)]
             else:
                 label = self.compound_label_encoder.encode([sample['label']])[1]
                 subimage_model_attn = get_gradcam(model, image, target=torch.FloatTensor(label).to(device))
                 subimage_model_attn = [x[0] for x in subimage_model_attn]  # get rid of the batch dimension
-                original_image_attn = process_grad_cam(subimages, subimage_masks, subimage_positions, subimage_model_attn, image_original_size)
+                original_image_attn = process_grad_cam(subimages, subimage_masks, subimage_positions, subimage_model_attn, image_original_size, **kwargs)
                 self.attention_cache[(model_name, image_name)] = (original_image_attn, subimage_model_attn)
         else:
             patch_size = model.patch_height, model.patch_width
@@ -189,7 +189,6 @@ class SubimageHandler:
                                                                    grid_size=model.get_grid_size(),
                                                                    subimage_masks=subimage_masks, subimages=subimages,
                                                                    subimage_positions=subimage_positions, patch_size=patch_size, **kwargs)
-
 
         if is_plot_results:
             image_original = sample['original_image']
