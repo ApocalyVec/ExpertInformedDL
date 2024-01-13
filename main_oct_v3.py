@@ -32,15 +32,15 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 
 results_dir = '../temp/results'
 # use_saved_folds = None
-# use_saved_folds = '../temp/results-base-vit-lr-scheduler'
+use_saved_folds = '../temp/results-repaired-base-vit'
 # use_saved_folds = '../temp/results-repaired-pretrained-vit'
-use_saved_folds = '../temp/results-repaired-inception'
+# use_saved_folds = '../temp/results-repaired-inception'
 
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 50
+epochs = 100
 random_seed = 42
 batch_size = 2
 folds = 3
@@ -48,7 +48,7 @@ folds = 3
 test_size = 0.1
 val_size = 0.14
 
-l2_weight = 1e-5
+l2_weight = 1e-6
 
 # grid search hyper-parameters ##################################
 ################################################################
@@ -59,7 +59,7 @@ depths = 1,
 ################################################################
 # alphas = 0.0, 1e-2, 0.1, 0.25, 0.5, 0.75, 1.0
 # alphas = 1e-2, 0.0
-alphas = 1e-2,
+alphas = 0., 1e-2, 0.1, 0.5
 # alphas = .0,
 
 ################################################################
@@ -78,8 +78,8 @@ aoi_loss_distance_types = 'cross-entropy',
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
 # model_names = 'vit_small_patch32_224_in21k_subimage',
-# model_names = 'base_subimage',
-model_names = 'inception_v4_subimage',
+model_names = 'base_subimage',
+# model_names = 'inception_v4_subimage',
 
 grid_search_params = {
     'vit_small_patch32_224_in21k_subimage': {
@@ -142,7 +142,8 @@ if __name__ == '__main__':
         pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
         pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
 
-    train_trial_dataset, valid_dataset, train_unique_img_dataset = folds[0]  # TODO using only one fold for now
+    # iterate through the folds
+
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)  # TODO use the test loader in the future
 
     # process the grid search parameters
@@ -150,10 +151,7 @@ if __name__ == '__main__':
     # for model, grid_search_params
 
     for depth, alpha, model_name, lr, aoi_loss_dist in itertools.product(depths, alphas, model_names, lrs, aoi_loss_distance_types):
-        # if model_name == 'pretrained':
-        #     this_lr = lr * non_pretrained_lr_scaling
-        #     this_depth = None  # depth does not affect the pretrained model
-        # else:
+
         this_lr = lr
         this_depth = depth
         if 'inception' in model_name:  # inception net doesn't have depth and alpha
@@ -162,33 +160,34 @@ if __name__ == '__main__':
             this_params = (model_name, this_depth, alpha, aoi_loss_dist, this_lr)
         parameters.add(this_params)
 
-    for i, parameter in enumerate(parameters):  # iterate over the grid search parameters
-        model_name, depth, alpha, aoi_loss_dist, lr = parameter
-        model = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
-        model_config_string = f"model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_lr-{lr}" + (f'_depth-{model.depth}' if hasattr(model, 'depth') else '')
-        print(f"Grid search [{i}] of {len(parameters)}: {model_config_string}")
+    for param_i, parameter in enumerate(parameters):  # iterate over the grid search parameters
+        for fold_i, (train_trial_dataset, valid_dataset, train_unique_img_dataset) in enumerate(folds):
+            model_name, depth, alpha, aoi_loss_dist, lr = parameter
+            model = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
+            model_config_string = f"model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_lr-{lr}" + (f'_depth-{model.depth}' if hasattr(model, 'depth') else '')
+            print(f"Grid search [{param_i}] of {len(parameters)}: {model_config_string}")
 
-        if 'inception' in model_name or alpha == 0.0:
-            train_dataset = train_unique_img_dataset
-        else:
-            train_dataset = train_trial_dataset
-        train_dataset.create_aoi(use_subimages=True)
-        valid_dataset.create_aoi(use_subimages=True)
+            if 'inception' in model_name or alpha == 0.0:
+                train_dataset = train_unique_img_dataset
+            else:
+                train_dataset = train_trial_dataset
+            train_dataset.create_aoi(use_subimages=True)
+            valid_dataset.create_aoi(use_subimages=True)
 
-        class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
+            class_weights = get_class_weight(train_dataset.labels_encoded, 2).to(device)
 
-        optimizer = optim.Adam(model.parameters(), lr=lr)
-        # optimizer = optim.SGD(model.parameters(), lr=lr)
-        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
-        # scheduler = None
+            optimizer = optim.Adam(model.parameters(), lr=lr)
+            # optimizer = optim.SGD(model.parameters(), lr=lr)
+            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
+            # scheduler = None
 
-        criterion = nn.CrossEntropyLoss()
+            criterion = nn.CrossEntropyLoss()
 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
 
-        train_loss_list, train_acc_list, valid_loss_list, valid_acc_list = train_oct_model(
-            model, model_config_string, train_loader, valid_loader, results_dir=results_dir, optimizer=optimizer, num_epochs=epochs,
-            alpha=alpha, dist=aoi_loss_dist, l2_weight=l2_weight, class_weights=class_weights)
+            train_loss_list, train_acc_list, valid_loss_list, valid_acc_list = train_oct_model(
+                model, f"{model_config_string}_fold_{fold_i}", train_loader, valid_loader, results_dir=results_dir, optimizer=optimizer, num_epochs=epochs,
+                alpha=alpha, dist=aoi_loss_dist, l2_weight=l2_weight, class_weights=class_weights)
 
     # viz_oct_results(results_dir, test_image_path, test_image_main, batch_size, image_size, n_jobs=n_jobs)
