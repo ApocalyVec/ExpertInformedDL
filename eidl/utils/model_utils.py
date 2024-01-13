@@ -2,6 +2,7 @@ import os
 import pickle
 import tempfile
 import urllib
+from typing import Callable
 
 import numpy as np
 import timm
@@ -15,6 +16,7 @@ from eidl.Models.ExtensionTimmViTSubimage import ExtensionTimmViTSubimage
 from eidl.Models.ExtensionModel import ExtensionModelSubimage
 from eidl.utils.image_utils import load_oct_image
 from eidl.utils.iter_utils import reverse_tuple, chunker
+from params import project_version
 
 
 def get_model(model_name, image_size, depth, device, *args, **kwargs):
@@ -116,51 +118,6 @@ def get_trained_model(device, model_param):
     compound_label_encoder = pickle.load(open(compound_label_encoder_file_path, 'rb'))
     return model, image_mean, image_std, image_size, compound_label_encoder
 
-def get_subimage_model(*args, **kwargs):
-    temp_dir = tempfile.gettempdir()
-    version = '_0.0.11'
-
-    # get the vit model
-    vit_path = os.path.join(temp_dir, f"vit{version}.pt")
-    if not os.path.exists(vit_path):
-        print("Downloading vit model...")
-        gdown.download(id='1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', output=vit_path, quiet=False)
-    vit_model = torch.load(vit_path)
-    print("Model downloaded and loaded.")
-    patch_size = vit_model.patch_height, vit_model.patch_width
-
-    # get the inception model
-    inception_path = os.path.join(temp_dir, f"inception{version}.pt")
-    if not os.path.exists(inception_path):
-        print("Downloading inception model...")
-        gdown.download(id='13x_lyhy3NYefcon1Pxq-R2oATYlQrYV6', output=inception_path, quiet=False)
-    inception_model = torch.load(inception_path)
-
-    # download the compound label encoder
-    compound_label_encoder_path = os.path.join(temp_dir, f"compound_label_encoder{version}.p")
-    if not os.path.exists(compound_label_encoder_path):
-        print("Downloading the compound label encoder...")
-        gdown.download(id='1akvbrkGGclsva9wQyccgV_JTG3Kud09e', output=compound_label_encoder_path, quiet=False)
-    compound_label_encoder = pickle.load(open(compound_label_encoder_path, 'rb'))
-
-    # get the dataset
-    dataset_path = os.path.join(temp_dir, f"oct_reports_info{version}.p")
-    if not os.path.exists(dataset_path):
-        print("Downloading the dataset...")
-        gdown.download(id='1du83qoQq05AWT6QXHp_ti4I4yIWariHQ', output=dataset_path, quiet=False)
-    from eidl.utils.SubimageHandler import SubimageHandler
-    data = pickle.load(open(dataset_path, 'rb'))
-
-    # create the subimage handler
-    subimage_handler = SubimageHandler()
-    subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
-    subimage_handler.models['vit'] = vit_model
-    subimage_handler.models['inception'] = inception_model
-    subimage_handler.compound_label_encoder = compound_label_encoder
-
-    return subimage_handler
-
-
 def load_image_preprocess(image_path, image_size, image_mean, image_std):
     image = load_oct_image(image_path, image_size)
     image_normalized = (image - image_mean) / image_std
@@ -235,4 +192,69 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
+def get_subimage_model(*args, **kwargs):
+    temp_dir = tempfile.gettempdir()
 
+    # make a temp dir with version number
+    temp_dir = os.path.join(temp_dir, f"eidl_{project_version}")
+
+    # get the dataset
+    print("Downloading the dataset...")
+    data = download_and_load('1du83qoQq05AWT6QXHp_ti4I4yIWariHQ', temp_dir, _p_load)
+    print("dataset downloaded and loaded.")
+
+    # get the vit model
+    print("Downloading vit model...")
+    vit_model = download_and_load('1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', temp_dir, torch.load)  # this is to load the model into the cache
+    print("vit model downloaded and loaded.")
+    patch_size = vit_model.patch_height, vit_model.patch_width
+
+    # get the inception model
+    print("Downloading inception model...")
+    inception_model = download_and_load('13x_lyhy3NYefcon1Pxq-R2oATYlQrYV6', temp_dir, torch.load)
+    print("inception model downloaded and loaded.")
+
+    # download the compound label encoder
+    print("Downloading the compound label encoder...")
+    compound_label_encoder = download_and_load('1akvbrkGGclsva9wQyccgV_JTG3Kud09e', temp_dir, _p_load)
+    print("compound label encoder downloaded and loaded.")
+
+
+    # create the subimage handler
+    from eidl.utils.SubimageHandler import SubimageHandler
+    subimage_handler = SubimageHandler()
+    subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
+    subimage_handler.models['vit'] = vit_model
+    subimage_handler.models['inception'] = inception_model
+    subimage_handler.compound_label_encoder = compound_label_encoder
+
+    return subimage_handler
+
+def download_and_load(file_id: str, temp_dir: str, load_func: Callable):
+    model_path = os.path.join(temp_dir, f"{file_id}.pt")
+    try:
+        _gdown(file_id, temp_dir)
+    except Exception as e:
+        print(f"Downloading file with id {file_id} failed with error {e}")
+        raise e
+    model = load_model(model_path)
+    return model
+
+
+def load_model(model_path):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Loading model from {model_path} onto {device}")
+    model = torch.load(model_path, map_location=device)
+    return model
+
+def _gdown(file_id, destination):
+    """Download a Google Drive file identified by the file_id.
+    Args:
+        file_id (str): the file identifier.
+        destination (str): the destination path.
+    """
+    if not os.path.exists(destination):
+        gdown.download(id=file_id, output=destination, quiet=False)
+
+def _p_load(path):
+    return pickle.load(open(path, 'rb'))
