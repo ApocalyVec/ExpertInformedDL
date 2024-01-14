@@ -3,10 +3,9 @@ import shutil
 import tempfile
 
 import numpy as np
-import pytest
 
 from eidl.utils.model_utils import get_subimage_model, count_parameters
-from params import project_version
+from eidl.params import project_version
 
 
 def test_get_subimage_model():

@@ -16,7 +16,7 @@ from eidl.Models.ExtensionTimmViTSubimage import ExtensionTimmViTSubimage
 from eidl.Models.ExtensionModel import ExtensionModelSubimage
 from eidl.utils.image_utils import load_oct_image
 from eidl.utils.iter_utils import reverse_tuple, chunker
-from params import project_version
+from eidl.params import project_version
 
 
 def get_model(model_name, image_size, depth, device, *args, **kwargs):

@@ -24,7 +24,7 @@ dependencies= [
     "tqdm",
     "torchsummary",
     "einops",
-    "pytorch-image-models @ git+https://github.com/ApocalyVec/pytorch-image-models.git",
+    "timm @ git+https://github.com/ApocalyVec/pytorch-image-models.git",
     "gdown==4.6.0",
     "imageio",
     "prettytable",
