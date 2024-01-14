@@ -28,7 +28,7 @@ from eidl.utils.training_utils import train_oct_model, get_class_weight
 data_root = 'home/leo/Data/oct_v2/Data'
 
 # cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info_repaired.p'
-cropped_image_data_path = 'home/leo/Data/oct_v2/Data/oct_reports_info_repaired.p'
+cropped_image_data_path = 'home/leo/Data/oct_v2/oct_reports_info_repaired.p'
 
 # results_dir = 'results'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
