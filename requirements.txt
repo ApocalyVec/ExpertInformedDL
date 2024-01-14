@@ -5,7 +5,7 @@ scikit-learn
 tqdm
 torchsummary
 einops
-git+https://github.com/ApocalyVec/pytorch-image-models.git
+timm-eidl
 gdown==4.6.0
 imageio
 prettytable

@@ -339,7 +339,7 @@ def train_oct_model(model, training_config_string, train_loader, valid_loader, o
     valid_loss_list = []
     valid_acc_list = []
     for epoch in range(num_epochs):
-        print('epoch:{epoch:d} / {num_epochs:d}')
+        print(f'epoch:{epoch:d} / {num_epochs:d}')
         print('*' * 100)
         train_loss, train_acc, train_auc, train_precision, train_recall, train_f1 = run_one_epoch_oct('train', model, train_loader, optimizer=optimizer, device=device, model_config_string=training_config_string, criterion=criterion,
                                                   dist=dist, alpha=alpha, l2_weight=l2_weight, epoch_i=epoch, *args, **kwargs)

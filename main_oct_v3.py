@@ -32,15 +32,15 @@ cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_rep
 
 results_dir = '../temp/results'
 # use_saved_folds = None
-use_saved_folds = '../temp/results-repaired-base-vit'
-# use_saved_folds = '../temp/results-repaired-pretrained-vit'
+# use_saved_folds = '../temp/results-repaired-base-vit'
+use_saved_folds = '../temp/results-repaired-pretrained-vit'
 # use_saved_folds = '../temp/results-repaired-inception'
 
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 100
+epochs = 50
 random_seed = 42
 batch_size = 2
 folds = 3
@@ -59,7 +59,8 @@ depths = 1,
 ################################################################
 # alphas = 0.0, 1e-2, 0.1, 0.25, 0.5, 0.75, 1.0
 # alphas = 1e-2, 0.0
-alphas = 0., 1e-2, 0.1, 0.5
+# alphas = 0., 1e-2, 0.1, 0.5
+alphas = 0., 1e-2
 # alphas = .0,
 
 ################################################################
@@ -77,8 +78,8 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-# model_names = 'vit_small_patch32_224_in21k_subimage',
-model_names = 'base_subimage',
+model_names = 'vit_small_patch32_224_in21k_subimage',
+# model_names = 'base_subimage',
 # model_names = 'inception_v4_subimage',
 
 grid_search_params = {
