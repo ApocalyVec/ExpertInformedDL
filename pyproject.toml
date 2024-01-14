@@ -24,12 +24,15 @@ dependencies= [
     "tqdm",
     "torchsummary",
     "einops",
-    "git+https://github.com/ApocalyVec/pytorch-image-models.git",
+    "pytorch-image-models @ git+https://github.com/ApocalyVec/pytorch-image-models.git",
     "gdown==4.6.0",
     "imageio",
     "prettytable",
     "toml"
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["eidl"]
