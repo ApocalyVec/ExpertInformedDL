@@ -52,7 +52,7 @@ def save_model(model, path, save_object=False):
 
     if isinstance(model, torch.nn.DataParallel):
         # Save the original model parameters
-        to_save = model.module()
+        to_save = model.module
     else:
         to_save = model
 
