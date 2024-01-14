@@ -223,7 +223,8 @@ def get_subimage_model(*args, **kwargs):
 
     # get the dataset
     print("Downloading the dataset...")
-    data = download_and_load('1ZvBpMvq92DxSGIzn-Cs0Vq37cYj77lWZ', temp_dir, _p_load)
+    data_file_id = '1ZvBpMvq92DxSGIzn-Cs0Vq37cYj77lWZ'
+    data = download_and_load(data_file_id, temp_dir, _p_load)
     print("dataset downloaded and loaded.")
 
     # get the vit model
@@ -253,16 +254,24 @@ def get_subimage_model(*args, **kwargs):
 
     return subimage_handler
 
+
 def download_and_load(file_id: str, temp_dir: str, load_func: Callable):
     save_path = os.path.join(temp_dir, f"{file_id}")
     try:
         _gdown(file_id, save_path)
-    except Exception as e:
-        print(f"Downloading file with id {file_id} failed with error {e}")
-        raise e
-    model = load_func(save_path)
-    return model
+        model = load_func(save_path)
+        return model
 
+    except FileNotFoundError:
+        print("Downloading the dataset failed because google drive has limited the download quota. \n"
+              "Please download from this link https://drive.google.com/uc?id=1ZvBpMvq92DxSGIzn-Cs0Vq37cYj77lWZ,  \n"
+              "Run this command to move the downloaded file to the temp directory:  \n"
+              f"mv <path>/<to>/oct_reports_info_repaired.p {save_path}\n"
+              "Then run your code again.")
+        raise FileNotFoundError
+    except Exception as e:
+        print(f"Unable to download or load file with id {file_id} failed with error {e}")
+        raise e
 
 def load_model(model_path):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
