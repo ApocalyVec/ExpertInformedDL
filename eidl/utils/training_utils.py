@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn_utils
 
 from eidl.Models.ExtensionModel import get_gradcam
-from eidl.utils.torch_utils import torch_wasserstein_loss, any_image_to_tensor
+from eidl.utils.torch_utils import torch_wasserstein_loss, any_image_to_tensor, save_model
 from eidl.viz.bad_gradient import is_bad_grad
 
 
@@ -148,8 +148,7 @@ def train(model, optimizer: torch.optim.Optimizer, train_data_loader, val_data_l
 
         if val_losses[-1] < best_loss:
             torch.save(model.state_dict(), os.path.join(save_dir, model_name))
-            print(
-                'Best model loss improved from {} to {}, saved best model to {}'.format(best_loss, val_losses[-1],  save_dir))
+            print('Best model loss improved from {} to {}, saved best model to {}'.format(best_loss, val_losses[-1],  save_dir))
             best_loss = val_losses[-1]
 
         # Save training histories after every epoch
@@ -363,12 +362,14 @@ def train_oct_model(model, training_config_string, train_loader, valid_loader, o
         if valid_acc > best_acc:
             best_acc = valid_acc
             best_model = model
-            torch.save(best_model, os.path.join(results_dir, f'best_{training_config_string}.pt'))
-            torch.save(model.state_dict(), os.path.join(results_dir, f'best_{training_config_string}_statedict.pt'))
+            save_model(model, os.path.join(results_dir, f'best_{training_config_string}.pt'), save_object=True)
+            save_model(model, os.path.join(results_dir, f'best_{training_config_string}_statedict.pt'), save_object=False)
 
         # if epoch >= 10 and len(set(train_acc_list[-10:])) == 1 and len(set(valid_acc_list[-10:])) == 1:
         #     break
-    torch.save(model, os.path.join(results_dir, f'final_{training_config_string}.pt'))
+    save_model(model, os.path.join(results_dir, f'final_{training_config_string}.pt'), save_object=True)
+    save_model(model, os.path.join(results_dir, f'final_{training_config_string}_statedict.pt'), save_object=False)
+
     return train_loss_list, train_acc_list, valid_loss_list, valid_acc_list
 
 # def test_without_fixation(model, data_loader, device):

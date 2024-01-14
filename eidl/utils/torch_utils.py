@@ -42,3 +42,19 @@ def any_image_to_tensor(image, device):
     else:
         image = image.to(device)
     return image
+
+
+def get_torch_device():
+    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+def save_model(model, path, save_object=False):
+    # Check if model is wrapped with DataParallel
+
+    if isinstance(model, torch.nn.DataParallel):
+        # Save the original model parameters
+        to_save = model.module()
+
+    if save_object:
+        torch.save(model, path)
+    else:
+        torch.save(model.state_dict(), path)
