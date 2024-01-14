@@ -186,10 +186,10 @@ if __name__ == '__main__':
             scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
             # scheduler = None
 
-            if torch.cuda.device_count() > 1:
-                print("Let's use", torch.cuda.device_count(), "GPUs!")
-                # Wrap the model with nn.DataParallel
-                model = nn.DataParallel(model)
+            # if torch.cuda.device_count() > 1:
+            #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+            #     # Wrap the model with nn.DataParallel
+            #     model = nn.DataParallel(model)
 
             criterion = nn.CrossEntropyLoss()
 
