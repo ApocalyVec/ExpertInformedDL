@@ -34,9 +34,9 @@ cropped_image_data_path = 'home/leo/Data/oct_reports_info_repaired.p'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
 results_dir = '../temp/results'
-# use_saved_folds = None
+use_saved_folds = None
 # use_saved_folds = '../temp/results-repaired-base-vit'
-use_saved_folds = '../temp/results-repaired-pretrained-vit'
+# use_saved_folds = '../temp/results-repaired-pretrained-vit'
 # use_saved_folds = '../temp/results-repaired-inception'
 
 
