@@ -145,35 +145,58 @@ def get_best_model(models, results_dict):
         best_model = best_model_results['model']
     return best_model, best_model_results, best_model_config_string
 
+def parse_epoch_metric_line(line, note=''):
+    metrics = [np.nan if x == '' else float(x) for x in line[1].strip("training: ").split(",")]
+    rtn = {}
+    if len(metrics) == 2:
+        rtn[f'{note}loss'], rtn[f'{note}acc'] = metrics
+    elif len(metrics) == 6:
+        rtn[f'{note}loss'], rtn[f'{note}acc'], rtn[f'{note}auc'], rtn[f'{note}precision'], rtn[f'{note}recall'], rtn[f'{note}f1'] = metrics
+    else:
+        raise ValueError(f"len(metrics) = {len(metrics)} is not supported")
+    return rtn
+
 def parse_training_results(results_dir):
     results_dict = {}
-    model_config_strings = [i.strip('log_').strip('.txt') for i in os.listdir(results_dir) if i.startswith('log')]
+    config_strings = [i.strip('log_').strip('.txt') for i in os.listdir(results_dir) if i.startswith('log')]
     # columns = ['model_name', 'train acc', 'train loss', 'validation acc', 'validation loss', 'test acc']
     # results_df = pd.DataFrame(columns=columns)
 
-    for i, model_config_string in enumerate(model_config_strings):
-        print(f"Processing [{i}] of {len(model_config_strings)} model configurations: {model_config_string}")
-        model = torch.load(
-            os.path.join(results_dir,
-                         f'best_{model_config_string}.pt'))  # TODO should load the model with smallest loss??
-        with open(os.path.join(results_dir, f'log_{model_config_string}.txt'), 'r') as file:
+    for i, c_string in enumerate(config_strings):
+        print(f"Processing [{i}] of {len(config_strings)} configurations: {c_string}")
+        model = torch.load(os.path.join(results_dir, f'best_{c_string}.pt'))  # TODO should load the model with smallest loss??
+        with open(os.path.join(results_dir, f'log_{c_string}.txt'), 'r') as file:
             lines = file.readlines()
-
         results = []
         for epoch_lines in chunker(lines, 3):  # iterate three lines at a time
-            train_loss, train_acc = [np.nan if x == '' else float(x) for x in epoch_lines[1].strip("training: ").split(",")]
-            val_loss, val_acc = [np.nan if x == '' else float(x) for x in epoch_lines[2].strip('validation: ').split(",")]
-            results.append((train_acc, train_loss, val_acc, val_loss))
+            results.append({**parse_epoch_metric_line(epoch_lines, 'train_'), **parse_epoch_metric_line(epoch_lines, 'val_')})
         results = np.array(results)
         # best_val_acc_epoch_index = np.argmax(results[:, 2])
         # test_acc = test_without_fixation(model, test_loader, device)  # TODO restore the test_acc after adding test method to extention
         # add viz pca of patch embeddings, attention rollout (gif and overlay), and position embeddings,
         # values = [model_config_string, *results[best_val_acc_epoch_index], test_acc]
         # results_df = pd.concat([results_df, pd.DataFrame(dict(zip(columns, values)))], ignore_index=True) # TODO fix the concat
+
         test_acc = None
-        results_dict[model_config_string] = {'model_config_string': model_config_string, 'train_accs': results[:, 0], 'train_losses': results[:, 1], 'val_accs': results[:, 2], 'val_losses': results[:, 3], 'test_acc': test_acc, 'model': model}  # also save the model
+        results_dict[c_string] = {'config_string': c_string,
+                                  'train_accs': [x['train_acc'] for x in results],
+                                  'train_losses': [x['train_loss'] for x in results],
+                                  'val_accs': [x['val_acc'] for x in results],
+                                  'val_losses': [x['val_loss'] for x in results],
+
+                                  'train_aucs': [x['train_auc'] for x in results] if 'train_auc' in results[0] else None,
+                                  'train_precisions': [x['train_precision'] for x in results] if 'train_precision' in results[0] else None,
+                                  'train_recalls': [x['train_recall'] for x in results] if 'train_recall' in results[0] else None,
+                                  'train_f1s': [x['train_f1'] for x in results] if 'train_f1' in results[0] else None,
+                                  'val_aucs': [x['val_auc'] for x in results] if 'val_auc' in results[0] else None,
+                                  'val_precisions': [x['val_precision'] for x in results] if 'val_precision' in results[0] else None,
+                                  'val_recalls': [x['val_recall'] for x in results] if 'val_recall' in results[0] else None,
+                                  'val_f1s': [x['val_f1'] for x in results] if 'val_f1' in results[0] else None,
+
+                                  'test_acc': test_acc,
+                                  'model': model}  # also save the model
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
-    return results_dict, model_config_strings
+    return results_dict, config_strings
 
 
 from prettytable import PrettyTable
@@ -200,7 +223,7 @@ def get_subimage_model(*args, **kwargs):
 
     # get the dataset
     print("Downloading the dataset...")
-    data = download_and_load('1du83qoQq05AWT6QXHp_ti4I4yIWariHQ', temp_dir, _p_load)
+    data = download_and_load('1ZvBpMvq92DxSGIzn-Cs0Vq37cYj77lWZ', temp_dir, _p_load)
     print("dataset downloaded and loaded.")
 
     # get the vit model
@@ -211,12 +234,12 @@ def get_subimage_model(*args, **kwargs):
 
     # get the inception model
     print("Downloading inception model...")
-    inception_model = download_and_load('13x_lyhy3NYefcon1Pxq-R2oATYlQrYV6', temp_dir, torch.load)
+    inception_model = download_and_load('1oQOMDEaDepnnDij9i4DVO6O-I-RZ19vi', temp_dir, torch.load)
     print("inception model downloaded and loaded.")
 
     # download the compound label encoder
     print("Downloading the compound label encoder...")
-    compound_label_encoder = download_and_load('1akvbrkGGclsva9wQyccgV_JTG3Kud09e', temp_dir, _p_load)
+    compound_label_encoder = download_and_load('1K5xFlovm8hVX6EQLNZGw6Gn8CuLVnEwT', temp_dir, _p_load)
     print("compound label encoder downloaded and loaded.")
 
 

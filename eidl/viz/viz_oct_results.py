@@ -92,12 +92,32 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
         for i, model in enumerate(models):
             val_accs = []
+            val_aucs = []
+            val_precisions = []
+            val_recalls = []
+            val_f1s = []
+
             for alpha in alphas:
                 val_acc_alpha = []
+                val_auc_alpha = []
+                val_precision_alpha = []
+                val_recall_alpha = []
+                val_f1_alpha = []
+
                 for model_config_string, results in results_dict.items():
                     if parse_model_parameter(model_config_string, 'alpha') == alpha and parse_model_parameter(model_config_string, 'model') == model:
                         val_acc_alpha.append(np.max(results['val_accs']))
+                        val_auc_alpha.append(np.max(results['val_aucs']))
+                        val_precision_alpha.append(np.max(results['val_precisions']))
+                        val_recall_alpha.append(np.max(results['val_recalls']))
+                        val_f1_alpha.append(np.max(results['val_f1s']))
+
                 val_accs.append(val_acc_alpha)
+                val_aucs.append(val_auc_alpha)
+                val_precisions.append(val_precision_alpha)
+                val_recalls.append(val_recall_alpha)
+                val_f1s.append(val_f1_alpha)
+
             x_positions = xticks + model_x_offset * i
             plt.boxplot(val_accs, positions=x_positions, patch_artist=True, widths=box_width, boxprops=dict(facecolor=colors[i*2+1], alpha=0.5, color=colors[i*2]), whiskerprops=dict(color=colors[i*2]), capprops=dict(color=colors[i*2]), medianprops=dict(color=colors[i*2]))
             plt.plot(x_positions, [np.mean(x) for x in val_accs], label=f"{model} average across tested parameters", color=colors[i*2])
