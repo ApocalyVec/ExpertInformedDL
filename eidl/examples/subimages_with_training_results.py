@@ -17,7 +17,9 @@ results_dir = '../temp/results-repaired-base-vit'
 
 source_attention_path = r"../temp/source_attention/GCL Prob RLS_036_OS_TC.pickle"
 figure_dir = '../temp/figures_example/RLS_036_OS_TC'
-model_type = 'inception'
+# figure_dir = '../temp/figures_example/RLS_036_OS_TC_cls_in_percep_roi'
+figure_percep_dir = '../temp/figures_example/RLS_036_OS_TC_cls_in_percep_roi_inverse_user_attention'
+model_type = 'vit'
 
 # figure_notes = 'square depth 1'
 # figure_notes = 'static aggregated-self discard 0.1 '
@@ -50,8 +52,8 @@ if __name__ == '__main__':
         pickle.dump(subimage_handler, open(os.path.join(tempfile.gettempdir(), 'subimage_handler.p'), 'wb'))
     subimage_handler.models[model_type] = best_model
 
-    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True, model_name=model_type)
-    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True, model_name=model_type)
+    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True, model_name=model_type, save_dir=figure_dir)
+    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True, model_name=model_type, save_dir=figure_percep_dir)
     # subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', save_dir=figure_dir, discard_ratio=0.1, notes=figure_notes)
     # subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', source_attention=human_attention, save_dir='figures_example', discard_ratio=0.7,notes=figure_notes)
     # subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', save_dir='figures_example', discard_ratio=0.1,notes=figure_notes)

@@ -39,22 +39,25 @@ def plot_train_history(history, note='', save_dir=None):
         plt.savefig(os.path.join(save_dir, f'{note}_loss.png'))
     plt.show()
 
+def recover_subimage(subimag, subimage_position, image_std, image_mean):
+    s_image_unznormed = np.transpose(subimag, (1, 2, 0)) * image_std + image_mean
+    s_image_unznormed = s_image_unznormed.astype(np.uint8)
+    s_image_unznormed = cv2.cvtColor(s_image_unznormed, cv2.COLOR_BGR2RGB)
+    s_image_size = subimage_position[2][1] - subimage_position[0][1], subimage_position[2][0] - subimage_position[0][0]
+    s_image_unznormed = s_image_unznormed[:s_image_size[0], :s_image_size[1]]
+    return s_image_unznormed
 
 def plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_std, image_mean, cmap_name,
                         notes='', overlay_alpha=0.75, save_dir=None):
     for s_i, (s_roll, s_image, s_pos) in enumerate(zip(subimage_roll, subimages, subimage_positions)):
         # unznorm the image
-        s_image_unznormed = np.transpose(s_image, (1, 2, 0)) * image_std + image_mean
-        s_image_unznormed = s_image_unznormed.astype(np.uint8)
-        s_image_unznormed = cv2.cvtColor(s_image_unznormed, cv2.COLOR_BGR2RGB)
-        s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]
-        s_image_unznormed = s_image_unznormed[:s_image_size[0], :s_image_size[1]]
+        s_image_unznormed = recover_subimage(s_image, s_pos, image_std, image_mean)
 
         # plot the aoi and subimage side by side, using subplot
         s_fig = plt.figure(figsize=(15, 10), constrained_layout=True)
 
         plt.subplot(1, 3, 1)
-        plt.imshow(s_image_unznormed, cmap=cmap_name)
+        plt.imshow(s_image_unznormed)
         if np.max(s_roll) > 0:
             plt.imshow(s_roll, cmap=cmap_name, alpha=overlay_alpha * s_roll / np.max(s_roll))
         plt.axis('off')

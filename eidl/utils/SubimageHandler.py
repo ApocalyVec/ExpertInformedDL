@@ -120,6 +120,7 @@ class SubimageHandler:
         image_original_size = sample['original_image'].shape[:-1]
 
         model = self.models[model_name]
+        model.eval()
         device = next(model.parameters()).device
 
         # run the model on the image
@@ -147,7 +148,6 @@ class SubimageHandler:
                 attention = vit_rollout(depth=model.depth-1, in_data=image, fixation_sequence=None, return_raw_attention=True)
                 self.attention_cache[(model_name, image_name, discard_ratio)] = attention
             if source_attention is not None:
-                attention = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
                 source_attention_patchified = []
                 for s_image in sample['sub_images']:
                     s_source_attention = source_attention[
@@ -166,10 +166,15 @@ class SubimageHandler:
                 # compute the perceptual attention
 
                 # simple multiplication ##########################################
-                # zero out the diagonal of the attention
-                attention = attention * (1 - np.eye(len(attention)))
-                attention = np.einsum('i,ij->j', source_attention_patchified, attention)
 
+                attn_cls = attention[0, 1:] / np.sum(attention[0, 1:])  # normalize as they are treated as probabilities
+                attn_self = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
+                # apply softmax to the attention
+                attn_self = np.exp(attn_self) / np.sum(np.exp(attn_self), axis=1)[:, None]
+
+                attn_self = attn_self * (1 - np.eye(len(attn_self)))  # zero out the diagonal of the attention
+                attn_temp = np.einsum('i,ij->j', 1 / (source_attention_patchified + 1e-6), attn_self)
+                attention = attn_temp * attn_cls
                 # _attention = np.zeros(len(source_attention_patchified))
                 # for i in range(len(source_attention_patchified)):
                 #     _attention += source_attention_patchified[i] * attention[i, :]

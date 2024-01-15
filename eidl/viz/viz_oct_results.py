@@ -20,7 +20,7 @@ from eidl.utils.torch_utils import any_image_to_tensor
 from eidl.viz.vit_rollout import VITAttentionRollout
 
 from eidl.viz.viz_utils import plt2arr, plot_train_history, plot_subimage_rolls, plot_image_attention, \
-    register_cmap_with_alpha
+    register_cmap_with_alpha, recover_subimage
 
 
 def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, viz_val_acc=True, plot_format='individual', num_plot=14,
@@ -183,13 +183,15 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
         os.mkdir(roll_image_folder)
 
     if isinstance(best_model, ExtensionModelSubimage):
-        viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency, roll_image_folder, image_stats)
+        viz_grad_cam(best_model, test_loader, device, has_subimage, cmap_name, rollout_transparency, roll_image_folder, image_stats)
     else:
         viz_vit_rollout(best_model, best_model_config_string, device, plot_format, num_plot, test_loader, has_subimage,
                         figure_dir, cmap_name, rollout_transparency, roll_image_folder, image_stats)
 
 
-def viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap_name, rollout_transparency, roll_image_folder, image_stats):
+def viz_grad_cam(best_model, test_loader, device, has_subimage, cmap_name, rollout_transparency, roll_image_folder, image_stats):
+    # create a grid to plot the subimage and their gradcam
+    _gradcam_info = []
     for sample_count, batch in enumerate(test_loader):
         print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
         image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
@@ -202,6 +204,37 @@ def viz_grad_cam(best_model, test_loader, device, figure_dir, has_subimage, cmap
                             image_stats['subimage_mean'], cmap_name='plasma',
                             notes=f"#{sample_count} inception-v4",
                             overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
+        _gradcam_info.append([gradcams_subimages, subimages, subimage_positions])
+    viz_subimage_attention_grid(*zip(*_gradcam_info), image_stats['subimage_std'], image_stats['subimage_mean'], roll_image_folder)
+
+def viz_subimage_attention_grid(all_subimage_attns, all_subimages, all_subimage_positions, image_std, image_mean,
+                                roll_image_folder):
+    n_plot_per_subimage_type = 8
+
+    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
+    # set up the subplots
+    f, axes = plt.subplots(6 * 2, 4 * 2)
+
+    for i, (subimage_attns, subimages, subiamge_positions) in enumerate(zip(all_subimage_attns, all_subimages, all_subimage_positions)):
+        if i == n_plot_per_subimage_type:
+            break
+
+        for j, (s_attn, s_image, s_pos) in enumerate(zip(subimage_attns, subimages, subiamge_positions)):
+            s_image_unznormed = recover_subimage(s_image, s_pos, image_std, image_mean)
+            row = j * 2 + i // 4
+            col = i % 4
+            axes[row, col].imshow(s_image_unznormed)
+            axes[row, col].axis('off')
+            axes[row, col + 1].imshow(s_attn, cmap='plasma')
+            axes[row, col + 1].axis('off')
+
+    plt.show()
+
+    if roll_image_folder is not None:
+        plt.savefig(os.path.join(roll_image_folder, f"subimage_attention_grid.png"))
+
+
+
 
 def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, num_plot, test_loader, has_subimage, figure_dir,
                     cmap_name, rollout_transparency, roll_image_folder, image_stats):
@@ -247,7 +280,7 @@ def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, n
                                                subimage_masks=subimage_masks, subimages=subimages,
                                                subimage_positions=subimage_positions, patch_size=patch_size, normalize_by_subimage=True)
 
-                    plot_image_attention(image_original, rollout_image, _aoi_heatmap, cmap_name='plasma',
+                    plot_image_attention(image_original, rollout_image, None, cmap_name='plasma',
                                          notes=f'#{sample_count} model {best_model_config_string}, roll depth {i}', save_dir=roll_image_folder)
                     plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['subimage_std'], image_stats['subimage_mean'], cmap_name='plasma',
                                         notes=f"#{sample_count} model {best_model_config_string}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
