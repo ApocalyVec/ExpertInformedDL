@@ -23,10 +23,13 @@ from eidl.utils.training_utils import train_oct_model, get_class_weight
 
 # Change the following to the file path on your system #########
 # data_root = 'D:/Dropbox/Dropbox/ExpertViT/Datasets/OCTData/oct_v2'
-data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
+# data_root = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
 # data_root = r'C:\Users\apoca_vpmhq3c\Dropbox\ExpertViT\Datasets\OCTData\oct_v2'
+data_root = '/home/leo/Data/oct_v2/'
 
-cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info_repaired.p'
+# cropped_image_data_path = r'C:\Dropbox\ExpertViT\Datasets\OCTData\oct_v2\oct_reports_info_repaired.p'
+cropped_image_data_path = '/home/leo/Data/oct_v2/oct_reports_info_repaired.p'
+
 # results_dir = 'results'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
@@ -59,9 +62,9 @@ depths = 1,
 ################################################################
 # alphas = 0.0, 1e-2, 0.1, 0.25, 0.5, 0.75, 1.0
 # alphas = 1e-2, 0.0
-# alphas = 0., 1e-2, 0.1, 0.5
-alphas = 0., 1e-2
-# alphas = .0,
+alphas = 0., 1e-2, 0.1, 0.5
+# alphas = 0., 1e-2
+# alphas = 0.1, 0.5
 
 ################################################################
 # lrs = 1e-2, 1e-3, 1e-4
@@ -165,6 +168,7 @@ if __name__ == '__main__':
         for fold_i, (train_trial_dataset, valid_dataset, train_unique_img_dataset) in enumerate(folds):
             model_name, depth, alpha, aoi_loss_dist, lr = parameter
             model = get_model(model_name, image_size=image_stats['subimage_sizes'], depth=depth, device=device, patch_size=patch_size)
+
             model_config_string = f"model-{model_name}_alpha-{alpha}_dist-{aoi_loss_dist}_lr-{lr}" + (f'_depth-{model.depth}' if hasattr(model, 'depth') else '')
             print(f"Grid search [{param_i}] of {len(parameters)}: {model_config_string}")
 
@@ -179,8 +183,16 @@ if __name__ == '__main__':
 
             optimizer = optim.Adam(model.parameters(), lr=lr)
             # optimizer = optim.SGD(model.parameters(), lr=lr)
-            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
-            # scheduler = None
+
+            if epochs > 1:
+                scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
+            else:
+                scheduler = None
+
+            if torch.cuda.device_count() > 1:
+                print("Let's use", torch.cuda.device_count(), "GPUs!")
+                # Wrap the model with nn.DataParallel
+                model = nn.DataParallel(model)
 
             criterion = nn.CrossEntropyLoss()
 
