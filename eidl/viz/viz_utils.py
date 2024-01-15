@@ -77,6 +77,8 @@ def plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_std,
             plt.savefig(os.path.join(save_dir, f'{title_text}.png'))
         else:
             plt.show()
+        # clear and close the figure
+        plt.clf()
 
 def plot_image_attention(image_original, model_attention, source_attention, cmap_name, overlay_alpha=0.9, save_dir=None, notes=''):
     fig = plt.figure(figsize=(30, 20), constrained_layout=True)
@@ -112,6 +114,8 @@ def plot_image_attention(image_original, model_attention, source_attention, cmap
         fig.savefig(os.path.join(save_dir, f'{notes}.png'))
     else:
         plt.show()
+
+    plt.clf()
 
 
 def register_cmap_with_alpha(cmap_name):

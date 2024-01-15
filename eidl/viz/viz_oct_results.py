@@ -211,9 +211,8 @@ def viz_subimage_attention_grid(all_subimage_attns, all_subimages, all_subimage_
                                 roll_image_folder):
     n_plot_per_subimage_type = 8
 
-    fig = plt.figure(figsize=(15, 10), constrained_layout=True)
     # set up the subplots
-    f, axes = plt.subplots(6 * 2, 4 * 2)
+    fig, axes = plt.subplots(6 * 2, 4 * 2, figsize=(12 * 1.6, 8 * 2), constrained_layout=True)
 
     for i, (subimage_attns, subimages, subiamge_positions) in enumerate(zip(all_subimage_attns, all_subimages, all_subimage_positions)):
         if i == n_plot_per_subimage_type:
@@ -221,8 +220,11 @@ def viz_subimage_attention_grid(all_subimage_attns, all_subimages, all_subimage_
 
         for j, (s_attn, s_image, s_pos) in enumerate(zip(subimage_attns, subimages, subiamge_positions)):
             s_image_unznormed = recover_subimage(s_image, s_pos, image_std, image_mean)
+            # crop the attention to the size of the subimage
+            s_attn = s_attn[:s_image_unznormed.shape[0], :s_image_unznormed.shape[1]]
+
             row = j * 2 + i // 4
-            col = i % 4
+            col = 2 * (i % 4)
             axes[row, col].imshow(s_image_unznormed)
             axes[row, col].axis('off')
             axes[row, col + 1].imshow(s_attn, cmap='plasma')
@@ -231,7 +233,7 @@ def viz_subimage_attention_grid(all_subimage_attns, all_subimages, all_subimage_
     plt.show()
 
     if roll_image_folder is not None:
-        plt.savefig(os.path.join(roll_image_folder, f"subimage_attention_grid.png"))
+        fig.savefig(os.path.join(roll_image_folder, f"subimage_attention_grid.png"))
 
 
 
@@ -246,6 +248,8 @@ def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, n
         patch_size = best_model.vision_transformer.patch_embed.patch_size[0], best_model.vision_transformer.patch_embed.patch_size[1]
 
     model_depth = best_model.depth
+
+    _rollout_info = []
 
     with torch.no_grad():
 
@@ -263,8 +267,7 @@ def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, n
             print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
             image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
 
-            rolls = vit_rollout(depth=np.arange(best_model.depth), in_data=image)
-
+            roll_depths = vit_rollout(depth=np.arange(best_model.depth), in_data=image)
 
             if plot_format == 'individual':
                 plot_original_image(image_original, image_original_size, aoi_heatmap, sample_count, figure_dir,
@@ -272,9 +275,9 @@ def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, n
                                     subimages, subimage_masks, subimage_positions, patch_size, cmap_name,
                                     rollout_transparency)
 
-                if type(rolls) is not list:
-                    rolls = [rolls]
-                for i, roll in enumerate(rolls):
+                if type(roll_depths) is not list:
+                    roll_depths = [roll_depths]
+                for i, roll in enumerate(roll_depths):
                     rollout_image, subimage_roll = process_aoi(roll, image_original_size, has_subimage,
                                                grid_size=best_model.get_grid_size(),
                                                subimage_masks=subimage_masks, subimages=subimages,
@@ -284,6 +287,7 @@ def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, n
                                          notes=f'#{sample_count} model {best_model_config_string}, roll depth {i}', save_dir=roll_image_folder)
                     plot_subimage_rolls(subimage_roll, subimages, subimage_positions, image_stats['subimage_std'], image_stats['subimage_mean'], cmap_name='plasma',
                                         notes=f"#{sample_count} model {best_model_config_string}, roll depth {i}", overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
+                _rollout_info.append([subimage_roll, subimages, subimage_positions])
 
                     # fig.savefig(f'figures/valImageIndex-{sample_count}_model-{model}_rollDepth-{i}.png')
                     # fig_list.append(plt2arr(fig))
@@ -301,13 +305,15 @@ def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, n
                     axis_aoi_heatmap.axis('off')
                     # axis_aoi_heatmap.title(f'#{sample_count}, expert AOI')
 
-                    for i, roll in enumerate(rolls):
+                    for i, roll in enumerate(roll_depths):
                         rollout_image = cv2.resize(roll, dsize=image.shape[1:], interpolation=cv2.INTER_LANCZOS4)
                         axes_roll[i].imshow(np.moveaxis(image_resized, 0, 2))  # plot the original image
                         axes_roll[i].imshow(rollout_image.T, cmap=cmap_name, alpha=rollout_transparency)
                         axes_roll[i].axis('off')
                         # axes_roll[i].title(f'#{sample_count}, model {model}, , roll depth {i}')
             sample_count += 1
+        viz_subimage_attention_grid(*zip(*_rollout_info), image_stats['subimage_std'], image_stats['subimage_mean'],
+                                    roll_image_folder)
 
     if plot_format == 'grid':
         plt.show()

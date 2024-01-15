@@ -2,7 +2,7 @@ import os
 
 from eidl.viz.viz_oct_results import viz_oct_results
 
-results_dir = '../temp/results-repaired-inception'
+results_dir = '../temp/results-repaired-base-vit'
 figure_dir = '../temp/results-repaired-base-vit/figures-paper'
 
 batch_size = 8
