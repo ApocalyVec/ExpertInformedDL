@@ -43,7 +43,7 @@ use_saved_folds = '../temp/results-repaired-pretrained-vit'
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 50
+epochs = 1
 random_seed = 42
 batch_size = 2
 folds = 3
@@ -183,8 +183,11 @@ if __name__ == '__main__':
 
             optimizer = optim.Adam(model.parameters(), lr=lr)
             # optimizer = optim.SGD(model.parameters(), lr=lr)
-            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
-            # scheduler = None
+
+            if epochs > 1:
+                scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=epochs // 5, T_mult=1, eta_min=1e-6, last_epoch=-1)
+            else:
+                scheduler = None
 
             if torch.cuda.device_count() > 1:
                 print("Let's use", torch.cuda.device_count(), "GPUs!")
