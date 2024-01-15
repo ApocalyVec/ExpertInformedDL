@@ -43,7 +43,7 @@ use_saved_folds = '../temp/results-repaired-pretrained-vit'
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 1
+epochs = 50
 random_seed = 42
 batch_size = 2
 folds = 3
