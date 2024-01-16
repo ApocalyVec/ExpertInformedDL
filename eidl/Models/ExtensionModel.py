@@ -5,10 +5,17 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 class ExtensionModelSubimage(nn.Module):
-    def __init__(self, feature_exatractor, num_classes: int, **kwargs):
+    def __init__(self, feature_exatractor, num_classes: int, model_name, **kwargs):
         super().__init__()
         self.feature_extractor = feature_exatractor
-        self.fc_combine = nn.Linear(3168 * 6, 1024)
+        self.model_name = model_name
+        if 'inception' in model_name:
+            self.fc_combine = nn.Linear(3168 * 6, 1024)
+        elif 'resnet' in model_name:
+            self.fc_combine = nn.Linear(3904 * 6, 1024)
+        elif 'vgg' in model_name:
+            self.fc_combine = nn.Linear(1984 * 6, 1024)
+
         # Classifier
         self.fc_classifier = nn.Linear(1024, num_classes)
 
@@ -28,6 +35,7 @@ class ExtensionModelSubimage(nn.Module):
                 hooks = [fmap.register_hook(self.activations_hook) for fmap in feature]
                 self.gradient_hooks.append(hooks)
 
+            # pooling feature map is only needed for inception
             # Pool and flatten the feature maps
             pooled = [F.adaptive_avg_pool2d(fmap, (1, 1)).view(fmap.size(0), -1) for fmap in feature]
             # Concatenate the flattened feature maps

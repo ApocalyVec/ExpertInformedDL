@@ -40,7 +40,14 @@ def get_model(model_name, image_size, depth, device, *args, **kwargs):
         model = ExtensionTimmViTSubimage(model).to(device)
     elif model_name == 'inception_v4_subimage':
         model = timm.create_model(model_name.replace('_subimage', ''),  pretrained=True, features_only=True)  # weights from 'https://storage.googleapis.com/vit_models/augreg/L_16-i21k-300ep-lr_0.001-aug_medium1-wd_0.1-do_0.1-sd_0.1.npz', official Google JAX implementation
-        model = ExtensionModelSubimage(model, num_classes=2).to(device)
+        model = ExtensionModelSubimage(model, num_classes=2, model_name=model_name).to(device)
+    elif model_name == 'resnet50_subimage':
+        model = timm.create_model('resnetv2_50x1_bit.goog_in21k', pretrained=True, num_classes=2, features_only=True)
+        model = ExtensionModelSubimage(model, num_classes=2, model_name=model_name).to(device)
+    elif model_name == 'vgg19_subimage':
+        model = timm.create_model('vgg19.tv_in1k', pretrained=True, num_classes=2, features_only=True)
+        model = ExtensionModelSubimage(model, num_classes=2, model_name=model_name).to(device)
+
     else:
         raise ValueError(f"model name {model_name} is not supported")
     return model
