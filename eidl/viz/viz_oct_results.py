@@ -209,10 +209,11 @@ def viz_grad_cam(best_model, test_loader, device, has_subimage, cmap_name, rollo
 
 def viz_subimage_attention_grid(all_subimage_attns, all_subimages, all_subimage_positions, image_std, image_mean,
                                 roll_image_folder):
-    n_plot_per_subimage_type = 8
+    n_plot_per_subimage_type = 12
 
     # set up the subplots
-    fig, axes = plt.subplots(6 * 2, 4 * 2, figsize=(12 * 1.6, 8 * 2), constrained_layout=True)
+    fig, axes = plt.subplots(6 * 3, 4 * 2, figsize=(8 * 2, 18 * 1.6), constrained_layout=True)
+    fig, axes = plt.subplots(6 * 3, 4 * 2, figsize=(8 * 2, 18 * 1.6), constrained_layout=True)
 
     for i, (subimage_attns, subimages, subiamge_positions) in enumerate(zip(all_subimage_attns, all_subimages, all_subimage_positions)):
         if i == n_plot_per_subimage_type:
@@ -223,7 +224,7 @@ def viz_subimage_attention_grid(all_subimage_attns, all_subimages, all_subimage_
             # crop the attention to the size of the subimage
             s_attn = s_attn[:s_image_unznormed.shape[0], :s_image_unznormed.shape[1]]
 
-            row = j * 2 + i // 4
+            row = j * 3 + i // 4
             col = 2 * (i % 4)
             axes[row, col].imshow(s_image_unznormed)
             axes[row, col].axis('off')

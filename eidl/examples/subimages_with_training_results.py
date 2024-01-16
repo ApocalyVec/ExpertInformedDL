@@ -3,7 +3,9 @@ import pickle
 import tempfile
 
 import torch
+import matplotlib.pyplot as plt
 
+from eidl.Models.ViT_pretrained.pytorch_pretrained_vit.utils import get_sim_source_attention
 from eidl.utils.SubimageHandler import SubimageHandler
 from eidl.utils.model_utils import get_best_model, parse_training_results, parse_model_parameter
 
@@ -12,14 +14,18 @@ patch_size=(32, 32)
 data_path = 'C:/Dropbox/ExpertViT/Datasets/OCTData/oct_v2/oct_reports_info_repaired.p'
 
 # results_dir = 'results-01_05_2024_10_56_13'
-results_dir = '../temp/results-repaired-base-vit'
+# results_dir = '../temp/results-repaired-base-vit'
+results_dir = '../temp/results-repaired-pretrained-vit'
 # results_dir = '../temp/results-repaired-inception'
 
 source_attention_path = r"../temp/source_attention/GCL Prob RLS_036_OS_TC.pickle"
 figure_dir = '../temp/figures_example/RLS_036_OS_TC'
 # figure_dir = '../temp/figures_example/RLS_036_OS_TC_cls_in_percep_roi'
-figure_percep_dir = '../temp/figures_example/RLS_036_OS_TC_cls_in_percep_roi_inverse_user_attention'
+figure_percep_dir = '../temp/figures_example/RLS_036_OS_TC_cls_in_percep_roi_inverse_user_attention_test'
 model_type = 'vit'
+
+image_name = 'RLS_036_OS_TC'
+
 
 # figure_notes = 'square depth 1'
 # figure_notes = 'static aggregated-self discard 0.1 '
@@ -52,7 +58,9 @@ if __name__ == '__main__':
         pickle.dump(subimage_handler, open(os.path.join(tempfile.gettempdir(), 'subimage_handler.p'), 'wb'))
     subimage_handler.models[model_type] = best_model
 
-    subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True, model_name=model_type, save_dir=figure_dir)
+    human_attention = get_sim_source_attention(subimage_handler.image_data_dict[image_name]['original_image'])
+
+    # subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True, model_name=model_type, save_dir=figure_dir)
     subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, discard_ratio=0.1, notes=figure_notes, normalize_by_subimage=True, model_name=model_type, save_dir=figure_percep_dir)
     # subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', save_dir=figure_dir, discard_ratio=0.1, notes=figure_notes)
     # subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', source_attention=human_attention, save_dir='figures_example', discard_ratio=0.7,notes=figure_notes)

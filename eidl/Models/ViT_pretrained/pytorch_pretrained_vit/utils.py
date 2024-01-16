@@ -117,3 +117,24 @@ def resize_positional_embedding_(posemb, posemb_new, has_class_token=True):
     posemb = torch.cat([posemb_tok, posemb_grid], dim=1)
     return posemb
 
+def gaussian2d(height, width, y0, x0, std):
+    x = np.linspace(0, width, width)
+    y = np.linspace(0, height, height)
+    x, y = np.meshgrid(x, y)
+    return np.exp(-((x - x0)**2 + (y - y0)**2) / (2 * std**2))
+
+
+def get_sim_source_attention(image, std=100, decay=0.4):
+    attn = np.zeros(image.shape[:2])
+
+    image_size = image.shape[:2]
+    # points = [(583, 2872), (558, 2858), (520, 2784), (632, 2853), (525, 2581), (613, 2510), ()]
+    points = [(583, 2872), (558, 2858), (520, 2784), (632, 2853), (525, 2581), (613, 2510), (693, 2674), (2658, 751)]
+
+    for point in points:
+        # get the 2d gaussian
+        f = gaussian2d(*image_size, *point, 100)
+        coef = decay * np.exp(-0.0141)
+        attn = coef * f + (1- coef) * attn
+    return attn
+

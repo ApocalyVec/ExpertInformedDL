@@ -170,15 +170,30 @@ class SubimageHandler:
                 attn_cls = attention[0, 1:] / np.sum(attention[0, 1:])  # normalize as they are treated as probabilities
                 attn_self = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
                 # apply softmax to the attention
-                attn_self = np.exp(attn_self) / np.sum(np.exp(attn_self), axis=1)[:, None]
 
                 attn_self = attn_self * (1 - np.eye(len(attn_self)))  # zero out the diagonal of the attention
-                attn_temp = np.einsum('i,ij->j', 1 / (source_attention_patchified + 1e-6), attn_self)
-                attention = attn_temp * attn_cls
-                # _attention = np.zeros(len(source_attention_patchified))
-                # for i in range(len(source_attention_patchified)):
-                #     _attention += source_attention_patchified[i] * attention[i, :]
-                # attention = _attention
+                attn_self = np.exp(attn_self) / np.sum(np.exp(attn_self), axis=1)[:, None]
+
+                # attn_temp = np.einsum('i,ij->j', 1 / (source_attention_patchified + 1e-6), attn_self)
+                attn_source = (source_attention_patchified - source_attention_patchified.min()) / (source_attention_patchified.max() - source_attention_patchified.min())
+                attn_source = np.ones_like(attn_source) + attn_source
+                attn_source = attn_source / attn_source.max()
+
+                # attn_temp = np.zeros(len(attn_source))
+                # for i in range(len(attn_source)):
+                #     if attn_source[i] == 0:
+                #         attn_temp += attn_self[:, i]
+                #     else:
+                #         attn_temp += attn_self[:, i] * attn_source[i]
+                #
+                # attn_temp = np.zeros(len(attn_source))
+                # for j in range(attn_self.shape[0]):
+                #     attn_temp[j] = np.sum(attn_source * attn_self[j, :])
+
+                attn_temp = np.einsum('i,ij->j', 1/ attn_source, attn_self.T)
+
+                a = (attn_temp - attn_temp.min()) / (attn_temp.max() - attn_temp.min())
+                attention = a * attn_cls
 
                 # bayesian inverse relation ##########################################
                 # attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
