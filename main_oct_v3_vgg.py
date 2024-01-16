@@ -206,5 +206,6 @@ if __name__ == '__main__':
             train_loss_list, train_acc_list, valid_loss_list, valid_acc_list = train_oct_model(
                 model, f"{model_config_string}_fold_{fold_i}", train_loader, valid_loader, results_dir=results_dir, optimizer=optimizer, num_epochs=epochs,
                 alpha=alpha, dist=aoi_loss_dist, l2_weight=l2_weight, class_weights=class_weights)
+            break
 
     # viz_oct_results(results_dir, test_image_path, test_image_main, batch_size, image_size, n_jobs=n_jobs)
