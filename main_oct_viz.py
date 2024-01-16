@@ -5,12 +5,14 @@ from eidl.viz.viz_oct_results import viz_oct_results
 # results_dir = '../temp/results-repaired-base-vit'
 # figure_dir = '../temp/results-repaired-base-vit/figures-paper'
 
-results_dir = '../temp/results-repaired-inception'
-figure_dir = '../temp/results-repaired-inception/figures-paper'
+# results_dir = '../temp/results-repaired-inception'
+# figure_dir = '../temp/results-repaired-inception/figures-paper'
 
-# results_dir = '../temp/results-repaired-pretrained-vit'
-# figure_dir = '../temp/results-repaired-pretrained-vit/figures-paper'
+results_dir = '../temp/results-repaired-pretrained-vit'
+figure_dir = '../temp/results-repaired-pretrained-vit/figures-paper'
 
+# results_dir = '../temp/results-repaired-resnet'
+# figure_dir = '../temp/results-repaired-resnet/figures-paper'
 
 batch_size = 8
 

@@ -17,6 +17,7 @@ from eidl.utils.image_utils import process_aoi, process_grad_cam
 from eidl.utils.iter_utils import collate_fn
 from eidl.utils.model_utils import parse_model_parameter, get_best_model, parse_training_results
 from eidl.utils.torch_utils import any_image_to_tensor
+from eidl.utils.training_utils import run_one_epoch, run_one_epoch_oct
 from eidl.viz.vit_rollout import VITAttentionRollout
 
 from eidl.viz.viz_utils import plt2arr, plot_train_history, plot_subimage_rolls, plot_image_attention, \
@@ -52,11 +53,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     image_stats = pickle.load(open(os.path.join(results_dir, 'image_stats.p'), 'rb'))
     # load the test dataset ############################################################################################
     test_dataset = pickle.load(open(os.path.join(results_dir, 'test_dataset.p'), 'rb'))
-    valid_dataset = pickle.load(open(os.path.join(results_dir, 'folds.p'), 'rb'))[0][1]  # TODO using only one fold for now
-    # combine the test and validation dataset
-    test_dataset = OCTDatasetV3([*test_dataset.trial_samples, *valid_dataset.trial_samples], True, valid_dataset.compound_label_encoder)
-    test_dataset_labels = np.array([x['label'] for x in test_dataset.trial_samples])
-    print(f"Test dataset size: {len(test_dataset)} after combining with validation set, with {np.sum(test_dataset_labels =='G')} glaucoma and {np.sum(test_dataset_labels =='S')} healthy samples")
+    folds = pickle.load(open(os.path.join(results_dir, 'folds.p'), 'rb'))
 
     results_dict, model_config_strings = parse_training_results(results_dir)
 
@@ -65,11 +62,17 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
 
     # results_df.to_csv(os.path.join(results_dir, "summary.csv"))
 
+    # run the best model on the test set
+    models = {parse_model_parameter(x, 'model') for x in model_config_strings}
+    models = list(reversed(list(models)))
+    best_model, best_model_results, best_model_config_string = get_best_model(models, results_dict)
+    best_model.eval()
+
+
     # visualize the val acc across alpha ###############################################################################
     alphas = {parse_model_parameter(x, 'alpha') for x in model_config_strings}
     alphas = list(alphas)
     alphas.sort()
-    models = {parse_model_parameter(x, 'model') for x in model_config_strings}
 
     small_font_size = 24
     medium_font_size = 26
@@ -82,6 +85,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     plt.rc('ytick', labelsize=small_font_size)
     plt.rc('legend', fontsize=small_font_size)
     plt.rc('figure', titlesize=large_font_size)
+
 
     if viz_val_acc:
         fig = plt.figure(figsize=(15, 10), constrained_layout=True)
@@ -97,12 +101,24 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
             val_recalls = []
             val_f1s = []
 
+            test_accs = []
+            test_aucs = []
+            test_precisions = []
+            test_recalls = []
+            test_f1s = []
+
             for alpha in alphas:
                 val_acc_alpha = []
                 val_auc_alpha = []
                 val_precision_alpha = []
                 val_recall_alpha = []
                 val_f1_alpha = []
+
+                test_acc_alpha = []
+                test_auc_alpha = []
+                test_precision_alpha = []
+                test_recall_alpha = []
+                test_f1_alpha = []
 
                 for model_config_string, results in results_dict.items():
                     if parse_model_parameter(model_config_string, 'alpha') == alpha and parse_model_parameter(model_config_string, 'model') == model:
@@ -112,11 +128,36 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                         val_recall_alpha.append(np.max(results['val_recalls']))
                         val_f1_alpha.append(np.max(results['val_f1s']))
 
+                        print(f"Best model: {best_model_config_string}, running on test set")
+                        # get the fold number
+                        f_index = int(model_config_string.split('_fold_')[1].split('_')[0])
+                        # combine the test and validation dataset
+                        valid_dataset = folds[f_index][1]  # TODO using only one fold for now
+                        test_dataset = OCTDatasetV3([*test_dataset.trial_samples, *valid_dataset.trial_samples], True, valid_dataset.compound_label_encoder)
+                        test_dataset_labels = np.array([x['label'] for x in test_dataset.trial_samples])
+                        print(f"Test dataset size: {len(test_dataset)} after combining with validation set, with {np.sum(test_dataset_labels =='G')} glaucoma and {np.sum(test_dataset_labels =='S')} healthy samples")
+                        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
+
+                        test_loss, test_acc, test_auc, test_precision, test_recall, test_f1 = \
+                            run_one_epoch_oct('val', results['model'], test_loader, device, None, 'test', nn.CrossEntropyLoss,0)
+
+                        test_acc_alpha.append(test_acc)
+                        test_auc_alpha.append(test_auc)
+                        test_precision_alpha.append(test_precision)
+                        test_recall_alpha.append(test_recall)
+                        test_f1_alpha.append(test_f1)
+
                 val_accs.append(val_acc_alpha)
                 val_aucs.append(val_auc_alpha)
                 val_precisions.append(val_precision_alpha)
                 val_recalls.append(val_recall_alpha)
                 val_f1s.append(val_f1_alpha)
+
+                test_accs.append(test_acc_alpha)
+                test_aucs.append(test_auc_alpha)
+                test_precisions.append(test_precision_alpha)
+                test_recalls.append(test_recall_alpha)
+                test_f1s.append(test_f1_alpha)
 
             x_positions = xticks + model_x_offset * i
             plt.boxplot(val_accs, positions=x_positions, patch_artist=True, widths=box_width, boxprops=dict(facecolor=colors[i*2+1], alpha=0.5, color=colors[i*2]), whiskerprops=dict(color=colors[i*2]), capprops=dict(color=colors[i*2]), medianprops=dict(color=colors[i*2]))
@@ -165,9 +206,8 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                     plt.savefig(os.path.join(figure_dir, f"{model}: validation accuracy for {hyperparam_name}.png"))
                 plt.show()
 
-    models = list(reversed(list(models)))
-    best_model, best_model_results, best_model_config_string = get_best_model(models, results_dict)
-    best_model.eval()
+    test_dataset = pickle.load(open(os.path.join(results_dir, 'test_dataset.p'), 'rb'))
+    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
     # visualize the training history of the best model ##################################################################
     plot_train_history(best_model_results, note=f"{best_model_config_string}", save_dir=figure_dir)
@@ -176,7 +216,6 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
     cmap_name = register_cmap_with_alpha('viridis')
 
     has_subimage = test_dataset.trial_samples[0].keys()
-    test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
     roll_image_folder = os.path.join(figure_dir, 'rollout_images')
     if not os.path.isdir(roll_image_folder):

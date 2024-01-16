@@ -34,12 +34,12 @@ cropped_image_data_path = '/home/leo/Data/oct_v2/oct_reports_info_repaired.p'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
 results_dir = '../temp/results'
-# use_saved_folds = None
+use_saved_folds = None
 # use_saved_folds = '../temp/results-repaired-base-vit'
 # use_saved_folds = '../temp/results-repaired-pretrained-vit'
 # use_saved_folds = '../temp/results-repaired-resnet'
 # use_saved_folds = '../temp/results-repaired-vgg'
-use_saved_folds = '../temp/results-repaired-inception'
+# use_saved_folds = '../temp/results-repaired-inception'
 
 
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
@@ -48,7 +48,7 @@ n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimag
 epochs = 50
 random_seed = 42
 batch_size = 2
-folds = 3
+folds = 10
 
 test_size = 0.1
 val_size = 0.14
@@ -83,9 +83,9 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-# model_names = 'vit_small_patch32_224_in21k_subimage',
+model_names = 'vit_small_patch32_224_in21k_subimage',
 # model_names = 'base_subimage',
-model_names = 'inception_v4_subimage',
+# model_names = 'inception_v4_subimage',
 # model_names = 'resnet50_subimage',
 # model_names = 'vgg19_subimage',
 

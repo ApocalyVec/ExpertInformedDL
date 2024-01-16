@@ -205,14 +205,14 @@ def train(model, optimizer: torch.optim.Optimizer, train_data_loader, val_data_l
 #
 #         return epoch_loss, epoch_acc
 
-def run_one_epoch_oct(mode, model: nn.Module, train_loader, device, class_weights, model_config_string, criterion,
-                      dist, alpha, l2_weight, epoch_i, optimizer=None, *args, **kwargs):
+def run_one_epoch_oct(mode, model: nn.Module, train_loader, device, class_weights, model_config_string, criterion, epoch_i,
+                      dist=None, alpha=None, l2_weight=None, optimizer=None, *args, **kwargs):
     if mode == 'train':
         model.train()
     elif mode == 'val':
         model.eval()
     else:
-        raise ValueError('mode must be train or eval')
+        raise ValueError('mode must be train or val')
     context_manager = torch.no_grad() if mode == 'val' else contextlib.nullcontext()
 
     total_samples = 0
@@ -234,9 +234,6 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, device, class_weight
         # fixation_sequence_torch = torch.Tensor(rnn_utils.pad_sequence(fixation_sequence, batch_first=True))
         image = any_image_to_tensor(image, device)
 
-        # check the aoi needs to be flattened
-        if len(aoi_heatmap.shape) == 3:  # batch, height, width
-            aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
 
         # the forward pass ###################################################################
         if mode == 'train':
@@ -252,6 +249,9 @@ def run_one_epoch_oct(mode, model: nn.Module, train_loader, device, class_weight
 
             attention_loss = torch.tensor(0).to(device)
             if attention is not None and alpha is not None:
+                # check the aoi needs to be flattened
+                if len(aoi_heatmap.shape) == 3:  # batch, height, width
+                    aoi_heatmap = torch.flatten(aoi_heatmap, 1, 2)
                 attention = torch.sum(attention, dim=1)  # summation across the heads
                 attention /= torch.sum(attention, dim=1, keepdim=True)  # normalize the attention output, so that they sum to 1
                 if dist == 'cross-entropy':
