@@ -36,6 +36,8 @@ def test_get_subimage_model():
 
     count_parameters(subimage_handler.models['vit'])
     count_parameters(subimage_handler.models['inception'])
+    count_parameters(subimage_handler.models['vgg'])
+    count_parameters(subimage_handler.models['resset'])
 
 
 def test_vit_attention():
@@ -55,12 +57,20 @@ def test_vit_attention():
 
 def test_gradcam():
     subimage_handler = get_subimage_model(n_jobs=16)
-    model_type = 'inception'
     image_name = 'RLS_036_OS_TC'
     # compute the static attention for the given image
-    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_type)
-    assert (model_type, image_name) in subimage_handler.attention_cache
-    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_type)
+    model_name = 'inception'
+    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_name)
+    assert (model_name, image_name) in subimage_handler.attention_cache
+    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_name)
 
+    model_name = 'vgg'
+    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_name)
+    assert (model_name, image_name) in subimage_handler.attention_cache
+    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_name)
 
+    model_name = 'resnet'
+    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_name)
+    assert (model_name, image_name) in subimage_handler.attention_cache
+    subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_name)
 

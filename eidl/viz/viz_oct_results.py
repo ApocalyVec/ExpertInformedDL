@@ -258,7 +258,6 @@ def viz_subimage_attention_grid(all_subimage_attns, all_subimages, all_subimage_
 
     # set up the subplots
     fig, axes = plt.subplots(6 * 3, 4 * 2, figsize=(8 * 2, 18 * 1.6), constrained_layout=True)
-    fig, axes = plt.subplots(6 * 3, 4 * 2, figsize=(8 * 2, 18 * 1.6), constrained_layout=True)
 
     for i, (subimage_attns, subimages, subiamge_positions) in enumerate(zip(all_subimage_attns, all_subimages, all_subimage_positions)):
         if i == n_plot_per_subimage_type:
@@ -313,7 +312,8 @@ def viz_vit_rollout(best_model, best_model_config_string, device, plot_format, n
             print(f'Processing sample {sample_count}/{len(test_loader)} in test set')
             image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
 
-            roll_depths = vit_rollout(depth=np.arange(best_model.depth), in_data=image)
+            # roll_depths = vit_rollout(depth=np.arange(best_model.depth), in_data=image)
+            roll_depths = vit_rollout(depth=best_model.depth-1, in_data=image)
 
             if plot_format == 'individual':
                 plot_original_image(image_original, image_original_size, aoi_heatmap, sample_count, figure_dir,

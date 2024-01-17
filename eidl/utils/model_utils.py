@@ -236,6 +236,14 @@ def get_subimage_model(*args, **kwargs):
     data = download_and_load(data_file_id, temp_dir, _p_load)
     print("dataset downloaded and loaded.")
 
+    # get the resnet model
+    print("Downloading resnet model...")
+    resnet_model = download_and_load('1oIvAaZM1SoKke4AUE_RBS7O85cIy_isP', temp_dir, torch.load)  # this is to load the model into the cache
+
+    # get the vgg model
+    print("Downloading vgg model...")
+    vgg_model = download_and_load('1qWsKqfS_ym8HGioz4bMPvWfldGPxZHpI', temp_dir, torch.load)  # this is to load the model into the cache
+
     # get the vit model
     print("Downloading vit model...")
     vit_model = download_and_load('1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', temp_dir, torch.load)  # this is to load the model into the cache
@@ -247,15 +255,11 @@ def get_subimage_model(*args, **kwargs):
     inception_model = download_and_load('1miWqj_UyS8QQYyRQqGBMzMiB02fRnhm0', temp_dir, torch.load)
     print("inception model downloaded and loaded.")
 
-    # get the resnet model
-    print("Downloading resnet model...")
-
 
     # download the compound label encoder
     print("Downloading the compound label encoder...")
     compound_label_encoder = download_and_load('1K5xFlovm8hVX6EQLNZGw6Gn8CuLVnEwT', temp_dir, _p_load)
     print("compound label encoder downloaded and loaded.")
-
 
     # create the subimage handler
     from eidl.utils.SubimageHandler import SubimageHandler
@@ -263,6 +267,8 @@ def get_subimage_model(*args, **kwargs):
     subimage_handler.load_image_data(data, patch_size=patch_size, *args, **kwargs)
     subimage_handler.models['vit'] = vit_model
     subimage_handler.models['inception'] = inception_model
+    subimage_handler.models['resnet'] = resnet_model
+    subimage_handler.models['vgg_model'] = vgg_model
     subimage_handler.compound_label_encoder = compound_label_encoder
 
     return subimage_handler

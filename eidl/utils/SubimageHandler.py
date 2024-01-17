@@ -113,7 +113,7 @@ class SubimageHandler:
         sample = self.image_data_dict[image_name]
         if source_attention is not None:
             assert source_attention.shape == sample['original_image'].shape[:-1], f"source attention shape {source_attention.shape} does not match image shape {sample['original_image'].shape[:-1]}"
-        assert model_name in ['vit', 'inception'], f"model name {model_name} is not supported, must be either 'vit' or 'inception'"
+        assert model_name in self.models.keys(), f"model name {model_name} is not supported, must be one of {self.models.keys()}"
         if model_name == 'inception' and source_attention is not None:
             warnings.warn("source attention is not used for the inception model")
 
@@ -130,8 +130,8 @@ class SubimageHandler:
         subimages = [x[0].detach().cpu().numpy() for x in image['subimages']]  # the subimages in a single image
         subimage_positions = [x['position'] for x in sample['sub_images']]
 
-        if model_name == 'inception':
-            if (image_name, discard_ratio) in self.attention_cache.keys():
+        if model_name == 'inception' or model_name == 'resnet' or model_name == 'vgg':
+            if (model_name, image_name) in self.attention_cache.keys():
                 original_image_attn, subimage_model_attn = self.attention_cache[(model_name, image_name)]
             else:
                 label = self.compound_label_encoder.encode([sample['label']])[1]
