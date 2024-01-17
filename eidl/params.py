@@ -1,4 +1,4 @@
-project_version = '0.0.15'
+project_version = '0.0.16'
 
 # train parameters for train.py ########################################
 # train parameters

@@ -61,7 +61,13 @@ def swap_tuple(t, i, j):
 def parse_model_parameter(model_config_string: str, parameter_name: str):
     assert parameter_name in model_config_string
     parameter_string = [x for x in model_config_string.split('_') if parameter_name in x][0]
-    parameter_value = parameter_string.split('-')[1]
+
+    if parameter_name == 'fold':
+        # get the numerical value
+        parameter_value = int(model_config_string.split('_')[-1])
+    else:
+        parameter_value = parameter_string.split('-')[1]
+
     if parameter_name == 'dist':
         return parameter_string.strip(f'{parameter_name}-')
     elif parameter_name in ['alpha', 'dist', 'depth', 'lr']:
@@ -132,7 +138,7 @@ def load_image_preprocess(image_path, image_size, image_mean, image_std):
     image_normalized = image_normalized.transpose((2, 0, 1))
     return image_normalized, image
 
-def get_best_model(models, results_dict):
+def get_best_model(models, results_dict, fold=None):
     models = list(reversed(list(models)))
     best_model, best_model_results, best_model_config_string = None, None, None
     for model in models:  # get the best model each model architecture
@@ -143,7 +149,8 @@ def get_best_model(models, results_dict):
         best_model_results = None
         for model_config_string, results in results_dict.items():
             this_val_acc = np.max(results['val_accs'])
-            if parse_model_parameter(model_config_string, 'model') == model and this_val_acc > best_model_val_acc:
+            if parse_model_parameter(model_config_string, 'model') == model and this_val_acc > best_model_val_acc\
+                    and (fold is None or parse_model_parameter(model_config_string, 'fold') == fold):
                 best_model_val_acc = this_val_acc
                 best_model_config_string = model_config_string
                 best_model_results = results
