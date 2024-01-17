@@ -37,7 +37,7 @@ def test_get_subimage_model():
     count_parameters(subimage_handler.models['vit'])
     count_parameters(subimage_handler.models['inception'])
     count_parameters(subimage_handler.models['vgg'])
-    count_parameters(subimage_handler.models['resset'])
+    count_parameters(subimage_handler.models['resnet'])
 
 
 def test_vit_attention():
