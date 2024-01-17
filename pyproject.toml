@@ -28,7 +28,8 @@ dependencies= [
     "gdown==4.6.0",
     "imageio",
     "prettytable",
-    "toml"
+    "toml",
+    "graphviz"
 ]
 
 [tool.hatch.metadata]

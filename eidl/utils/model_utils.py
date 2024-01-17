@@ -268,7 +268,7 @@ def get_subimage_model(*args, **kwargs):
     subimage_handler.models['vit'] = vit_model
     subimage_handler.models['inception'] = inception_model
     subimage_handler.models['resnet'] = resnet_model
-    subimage_handler.models['vgg_model'] = vgg_model
+    subimage_handler.models['vgg'] = vgg_model
     subimage_handler.compound_label_encoder = compound_label_encoder
 
     return subimage_handler
