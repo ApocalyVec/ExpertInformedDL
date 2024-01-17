@@ -153,7 +153,7 @@ def get_best_model(models, results_dict):
     return best_model, best_model_results, best_model_config_string
 
 def parse_epoch_metric_line(line, note=''):
-    metrics = [np.nan if x == '' else float(x) for x in line[1].strip("training: ").split(",")]
+    metrics = [np.nan if x == '' else float(x) for x in line.strip("training: ").strip("validation: ").split(",")]
     rtn = {}
     if len(metrics) == 2:
         rtn[f'{note}loss'], rtn[f'{note}acc'] = metrics
@@ -176,7 +176,7 @@ def parse_training_results(results_dir):
             lines = file.readlines()
         results = []
         for epoch_lines in chunker(lines, 3):  # iterate three lines at a time
-            results.append({**parse_epoch_metric_line(epoch_lines, 'train_'), **parse_epoch_metric_line(epoch_lines, 'val_')})
+            results.append({**parse_epoch_metric_line(epoch_lines[1],  'train_'), **parse_epoch_metric_line(epoch_lines[2], 'val_')})
         results = np.array(results)
         # best_val_acc_epoch_index = np.argmax(results[:, 2])
         # test_acc = test_without_fixation(model, test_loader, device)  # TODO restore the test_acc after adding test method to extention
@@ -188,6 +188,7 @@ def parse_training_results(results_dir):
         results_dict[c_string] = {'config_string': c_string,
                                   'train_accs': [x['train_acc'] for x in results],
                                   'train_losses': [x['train_loss'] for x in results],
+
                                   'val_accs': [x['val_acc'] for x in results],
                                   'val_losses': [x['val_loss'] for x in results],
 
@@ -195,6 +196,7 @@ def parse_training_results(results_dir):
                                   'train_precisions': [x['train_precision'] for x in results] if 'train_precision' in results[0] else None,
                                   'train_recalls': [x['train_recall'] for x in results] if 'train_recall' in results[0] else None,
                                   'train_f1s': [x['train_f1'] for x in results] if 'train_f1' in results[0] else None,
+
                                   'val_aucs': [x['val_auc'] for x in results] if 'val_auc' in results[0] else None,
                                   'val_precisions': [x['val_precision'] for x in results] if 'val_precision' in results[0] else None,
                                   'val_recalls': [x['val_recall'] for x in results] if 'val_recall' in results[0] else None,
@@ -244,6 +246,10 @@ def get_subimage_model(*args, **kwargs):
     print("Downloading inception model...")
     inception_model = download_and_load('1miWqj_UyS8QQYyRQqGBMzMiB02fRnhm0', temp_dir, torch.load)
     print("inception model downloaded and loaded.")
+
+    # get the resnet model
+    print("Downloading resnet model...")
+
 
     # download the compound label encoder
     print("Downloading the compound label encoder...")

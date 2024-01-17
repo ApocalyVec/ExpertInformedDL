@@ -15,8 +15,10 @@ data_path = 'C:/Dropbox/ExpertViT/Datasets/OCTData/oct_v2/oct_reports_info_repai
 
 # results_dir = 'results-01_05_2024_10_56_13'
 # results_dir = '../temp/results-repaired-base-vit'
-results_dir = '../temp/results-repaired-pretrained-vit'
+# results_dir = '../temp/results-repaired-pretrained-vit'
 # results_dir = '../temp/results-repaired-inception'
+# results_dir = '../temp/results-repaired-vgg'
+results_dir = '../temp/results-repaired-resnet'
 
 source_attention_path = r"../temp/source_attention/GCL Prob RLS_036_OS_TC.pickle"
 figure_dir = '../temp/figures_example/RLS_036_OS_TC'

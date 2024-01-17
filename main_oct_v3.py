@@ -34,9 +34,9 @@ cropped_image_data_path = '/home/leo/Data/oct_v2/oct_reports_info_repaired.p'
 # use_saved_folds = 'results-01_07_2024_10_53_56'
 
 results_dir = '../temp/results'
-# use_saved_folds = None
+use_saved_folds = None
 # use_saved_folds = '../temp/results-repaired-base-vit'
-use_saved_folds = '../temp/results-repaired-pretrained-vit-10folds'
+# use_saved_folds = '../temp/results-repaired-pretrained-vit-10folds'
 # use_saved_folds = '../temp/results-repaired-resnet'
 # use_saved_folds = '../temp/results-repaired-vgg'
 # use_saved_folds = '../temp/results-repaired-inception'
@@ -45,9 +45,9 @@ use_saved_folds = '../temp/results-repaired-pretrained-vit-10folds'
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 50
+epochs = 100
 random_seed = 42
-batch_size = 2
+batch_size = 8
 folds = 10
 
 test_size = 0.1
@@ -83,8 +83,8 @@ aoi_loss_distance_types = 'cross-entropy',
 ################################################################
 # model_names = 'base', 'vit_small_patch32_224_in21k', 'vit_small_patch16_224_in21k', 'vit_large_patch16_224_in21k'
 # model_names = 'base', 'vit_small_patch32_224_in21k'
-model_names = 'vit_small_patch32_224_in21k_subimage',
-# model_names = 'base_subimage',
+# model_names = 'vit_small_patch32_224_in21k_subimage',
+model_names = 'base_subimage',
 # model_names = 'inception_v4_subimage',
 # model_names = 'resnet50_subimage',
 # model_names = 'vgg19_subimage',
@@ -150,7 +150,15 @@ if __name__ == '__main__':
         pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
         pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
 
-    # iterate through the folds
+    # check there's no data leak between the train and valid in the folds
+    for fold_i, (train_trial_dataset, valid_dataset, train_unique_img_dataset) in enumerate(folds):
+        train_names = {x['name'] for x in train_trial_dataset.trial_samples}
+        valid_names = {x['name'] for x in valid_dataset.trial_samples}
+
+        train_unique_names = {x['name'] for x in train_unique_img_dataset.trial_samples}
+
+        assert len(valid_names.intersection(train_names)) == 0
+        assert len(valid_names.intersection(train_unique_names)) == 0
 
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)  # TODO use the test loader in the future
 

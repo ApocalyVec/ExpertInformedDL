@@ -159,6 +159,12 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                 test_recalls.append(test_recall_alpha)
                 test_f1s.append(test_f1_alpha)
 
+            print(f'test accs are       {np.mean(np.array(test_accs), axis=1)}')
+            print(f'test aucs are       {np.mean(np.array(test_aucs), axis=1)}')
+            print(f'test precisions are {np.mean(np.array(test_precisions), axis=1)}')
+            print(f'test recalls are    {np.mean(np.array(test_recalls), axis=1)}')
+            print(f'test f1s are        {np.mean(np.array(test_f1s), axis=1)}')
+
             x_positions = xticks + model_x_offset * i
             plt.boxplot(val_accs, positions=x_positions, patch_artist=True, widths=box_width, boxprops=dict(facecolor=colors[i*2+1], alpha=0.5, color=colors[i*2]), whiskerprops=dict(color=colors[i*2]), capprops=dict(color=colors[i*2]), medianprops=dict(color=colors[i*2]))
             plt.plot(x_positions, [np.mean(x) for x in val_accs], label=f"{model} average across tested parameters", color=colors[i*2])
