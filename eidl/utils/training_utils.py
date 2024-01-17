@@ -348,6 +348,7 @@ def train_oct_model(model, training_config_string, train_loader, valid_loader, o
         train_acc_list.append(train_acc)
         valid_loss, valid_acc, valid_auc, valid_precision, valid_recall, valid_f1 = run_one_epoch_oct('val', model, valid_loader, device=device, model_config_string=training_config_string, criterion=criterion,
                                                   dist=dist, alpha=alpha, l2_weight=l2_weight, epoch_i=epoch, *args, **kwargs)
+        optimizer.zero_grad()
         valid_loss_list.append(valid_loss)
         valid_acc_list.append(valid_acc)
         print("training loss: {:.4f}, training acc: {:.4f}; validation loss {:.4f}, validation acc: {:.4f}, current lr: {:.8f}"
