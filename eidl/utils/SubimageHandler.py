@@ -91,7 +91,7 @@ class SubimageHandler:
         self.image_data_dict = image_data_dict
         return image_data_dict
 
-    def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True, save_dir=None,
+    def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True,
                                      notes='', discard_ratio=0.9, model_name='vit', *args, **kwargs):
         """
 
@@ -215,7 +215,7 @@ class SubimageHandler:
             image_original = cv2.cvtColor(image_original, cv2.COLOR_BGR2RGB)
             # cmap_name = register_cmap_with_alpha('viridis')
             plot_image_attention(image_original, original_image_attn, source_attention, 'plasma',
-                                 notes=f'{notes}{image_name}', overlay_alpha=overlay_alpha, save_dir=save_dir)
+                                 notes=f'{notes}{image_name}', overlay_alpha=overlay_alpha, *args, **kwargs)
             plot_subimage_rolls(subimage_model_attn, subimages, subimage_positions, self.subimage_std, self.subimage_mean,
-                                'plasma', notes=f"{notes}{image_name}", overlay_alpha=overlay_alpha, save_dir=save_dir)
+                                'plasma', notes=f"{notes}{image_name}", overlay_alpha=overlay_alpha)
         return {"original_image_attention": original_image_attn, "subimage_attention": subimage_model_attn, "subimage_position": subimage_positions}
