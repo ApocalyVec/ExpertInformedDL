@@ -20,6 +20,9 @@ from eidl.viz.viz_oct_results import viz_oct_results
 # results_dir = '../temp/results-repaired-vgg'
 # figure_dir = '../temp/results-repaired-vgg/figures-paper'
 
+results_dir = '../temp/results-repaired-base-vit-10folds'
+figure_dir = '../temp/results-repaired-base-vit-10folds/figures-paper'
+
 batch_size = 8
 
 viz_val_acc = True

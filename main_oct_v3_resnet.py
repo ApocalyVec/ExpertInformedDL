@@ -47,7 +47,7 @@ n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimag
 # generic training parameters ##################################
 epochs = 100
 random_seed = 42
-batch_size = 8
+batch_size = 2
 folds = 10
 
 test_size = 0.1
