@@ -276,7 +276,7 @@ def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions,
     print("remapping subimage attention rolls")
 
 
-def process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_size, normalize_by_subimage=False, **kwargs):
+def process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_size, normalize_by_subimage=False, *args, **kwargs):
     aoi_recovered = np.zeros(image_size)
     for s_image, s_mask, s_pos, s_grad_cam in zip(subimages, subimage_masks, subimage_positions, gradcams_subimages):  # s refers to a single subimage
         s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]

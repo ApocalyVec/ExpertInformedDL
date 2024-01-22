@@ -17,7 +17,7 @@ results_dir = '../temp/results-repaired-base-vit'
 
 source_attention_path = r"../temp/perceptual_roi\samples"
 
-figure_output = '../temp/perceptual_roi/'
+figure_output = '../temp/perceptual_roi/not_normalize_by_subimage'
 model_type = 'vit'
 
 image_name = 'RLS_036_OS_TC'
@@ -53,6 +53,6 @@ if __name__ == '__main__':
         image_name = perceptual_aoi_info['image_name']
 
         subimage_handler.compute_perceptual_attention(image_name, source_attention=source_attention,
-                                                      discard_ratio=0.1, notes=f"Sample-{i}_", normalize_by_subimage=True, model_name=model_type,
+                                                      discard_ratio=0.1, notes=f"Sample-{i}_", normalize_by_subimage=False, model_name=model_type,
                                                       save_dir=figure_output, save_separate_overlay=True)
 
