@@ -108,6 +108,7 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
             test_f1s = []
 
             for alpha in alphas:
+                print(f"working on alpha {alpha}")
                 val_acc_alpha = []
                 val_auc_alpha = []
                 val_precision_alpha = []
@@ -133,10 +134,10 @@ def viz_oct_results(results_dir, batch_size, n_jobs=1, acc_min=.3, acc_max=1, vi
                         f_index = int(model_config_string.split('_fold_')[1].split('_')[0])
                         # combine the test and validation dataset
                         valid_dataset = folds[f_index][1]  # TODO using only one fold for now
-                        test_dataset = OCTDatasetV3([*test_dataset.trial_samples, *valid_dataset.trial_samples], True, valid_dataset.compound_label_encoder)
-                        test_dataset_labels = np.array([x['label'] for x in test_dataset.trial_samples])
-                        print(f"Test dataset size: {len(test_dataset)} after combining with validation set, with {np.sum(test_dataset_labels =='G')} glaucoma and {np.sum(test_dataset_labels =='S')} healthy samples")
-                        test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
+                        valid_test_combined_dataset = OCTDatasetV3([*test_dataset.trial_samples, *valid_dataset.trial_samples], True, valid_dataset.compound_label_encoder)
+                        valid_test_combined_dataset_labels = np.array([x['label'] for x in valid_test_combined_dataset.trial_samples])
+                        print(f"Test dataset size: {len(valid_test_combined_dataset)} after combining with validation set, with {np.sum(valid_test_combined_dataset_labels =='G')} glaucoma and {np.sum(valid_test_combined_dataset_labels =='S')} healthy samples")
+                        test_loader = DataLoader(valid_test_combined_dataset, batch_size=1, shuffle=False, collate_fn=collate_fn)  # one image at a time
 
                         test_loss, test_acc, test_auc, test_precision, test_recall, test_f1 = \
                             run_one_epoch_oct('val', results['model'], test_loader, device, None, 'test', nn.CrossEntropyLoss,0)
