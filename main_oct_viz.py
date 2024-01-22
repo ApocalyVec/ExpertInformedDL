@@ -2,8 +2,8 @@ import os
 
 from eidl.viz.viz_oct_results import viz_oct_results
 
-results_dir = '../temp/results-repaired-base-vit'
-figure_dir = '../temp/results-repaired-base-vit/figures-paper'
+# results_dir = '../temp/results-repaired-base-vit'
+# figure_dir = '../temp/results-repaired-base-vit/figures-paper'
 
 # results_dir = '../temp/results-repaired-inception'
 # figure_dir = '../temp/results-repaired-inception/figures-paper'
@@ -14,8 +14,8 @@ figure_dir = '../temp/results-repaired-base-vit/figures-paper'
 # results_dir = '../temp/results-repaired-pretrained-vit-10folds'
 # figure_dir = '../temp/results-repaired-pretrained-vit-10folds/figures-paper'
 
-# results_dir = '../temp/results-repaired-resnet'
-# figure_dir = '../temp/results-repaired-resnet/figures-paper'
+results_dir = '../temp/results-repaired-resnet'
+figure_dir = '../temp/results-repaired-resnet/figures-paper'
 
 # results_dir = '../temp/results-repaired-vgg'
 # figure_dir = '../temp/results-repaired-vgg/figures-paper'
