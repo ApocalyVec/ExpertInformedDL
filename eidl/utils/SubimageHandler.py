@@ -167,7 +167,12 @@ class SubimageHandler:
 
                 # simple multiplication ##########################################
 
-                attn_cls = attention[0, 1:] / np.sum(attention[0, 1:])  # normalize as they are treated as probabilities
+                # attn_cls = attention[0, 1:] / np.sum(attention[0, 1:])  # normalize as they are treated as probabilities
+                attn_cls = attention[0, 1:]
+                attn_cls = (attn_cls - attn_cls.min()) / (attn_cls.max() - attn_cls.min())
+                attn_cls = np.ones_like(attn_cls) + attn_cls
+                attn_cls = attn_cls / attn_cls.max()
+
                 attn_self = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
                 # apply softmax to the attention
 
@@ -190,7 +195,7 @@ class SubimageHandler:
                 # for j in range(attn_self.shape[0]):
                 #     attn_temp[j] = np.sum(attn_source * attn_self[j, :])
 
-                attn_temp = np.einsum('i,ij->j', 1/ attn_source, attn_self.T)
+                attn_temp = np.einsum('i,ij->j', 1 / attn_source, attn_self.T)
 
                 a = (attn_temp - attn_temp.min()) / (attn_temp.max() - attn_temp.min())
                 attention = a * attn_cls
