@@ -17,7 +17,7 @@ results_dir = '../temp/results-repaired-base-vit'
 
 source_attention_path = r"../temp/perceptual_roi\samples"
 
-figure_output = '../temp/perceptual_roi/not_normalize_by_subimage'
+figure_output = '../temp/perceptual_roi/norm CLS'
 model_type = 'vit'
 
 image_name = 'RLS_036_OS_TC'
