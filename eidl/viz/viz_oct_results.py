@@ -245,10 +245,10 @@ def viz_grad_cam(best_model, test_loader, device, has_subimage, cmap_name, rollo
         gradcams_subimages = [x[0] for x in gradcams_subimages]  # get rid of the batch dimension
         aoi_recovered = process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_original_size, *args, **kwargs)
         plot_image_attention(image_original, aoi_recovered, None, cmap_name='plasma',
-                             notes=f'#{sample_count} inception-v4', save_dir=roll_image_folder)
+                             notes=f'#{sample_count} gradcam', save_dir=roll_image_folder)
         plot_subimage_rolls(gradcams_subimages, subimages, subimage_positions, image_stats['subimage_std'],
                             image_stats['subimage_mean'], cmap_name='plasma',
-                            notes=f"#{sample_count} inception-v4",
+                            notes=f"#{sample_count} gradcam",
                             overlay_alpha=rollout_transparency, save_dir=roll_image_folder)
         _gradcam_info.append([gradcams_subimages, subimages, subimage_positions])
     viz_subimage_attention_grid(*zip(*_gradcam_info), image_stats['subimage_std'], image_stats['subimage_mean'], roll_image_folder)

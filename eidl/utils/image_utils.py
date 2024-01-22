@@ -280,7 +280,7 @@ def process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_su
     aoi_recovered = np.zeros(image_size)
     for s_image, s_mask, s_pos, s_grad_cam in zip(subimages, subimage_masks, subimage_positions, gradcams_subimages):  # s refers to a single subimage
         s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]
-        s_grad_cam = s_grad_cam[:s_image_size[0], :s_image_size[1]]
+        s_grad_cam = np.copy(s_grad_cam[:s_image_size[0], :s_image_size[1]])
 
         if normalize_by_subimage:
             if np.max(s_grad_cam) > 0:
