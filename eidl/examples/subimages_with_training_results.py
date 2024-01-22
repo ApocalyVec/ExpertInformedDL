@@ -24,7 +24,7 @@ source_attention_path = r"../temp/source_attention/GCL Prob RLS_036_OS_TC.pickle
 figure_dir = '../temp/figures_example/RLS_036_OS_TC'
 # figure_dir = '../temp/figures_example/RLS_036_OS_TC_cls_in_percep_roi'
 figure_percep_dir = '../temp/figures_example/RLS_036_OS_TC_cls_in_percep_roi_inverse_user_attention_test'
-model_type = 'vit'
+model_type = 'resnet'
 
 image_name = 'RLS_036_OS_TC'
 

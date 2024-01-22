@@ -243,7 +243,7 @@ def viz_grad_cam(best_model, test_loader, device, has_subimage, cmap_name, rollo
         image, image_resized, aoi_heatmap, subimages, subimage_masks, subimage_positions, image_original, image_original_size, label_encoded = process_batch(batch, has_subimage, device)
         gradcams_subimages = get_gradcam(best_model, image, label_encoded.to(device))
         gradcams_subimages = [x[0] for x in gradcams_subimages]  # get rid of the batch dimension
-        aoi_recovered = process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_original_size, *args, **kwargs)
+        aoi_recovered, gradcams_subimages = process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_original_size, *args, **kwargs)
         plot_image_attention(image_original, aoi_recovered, None, cmap_name='plasma',
                              notes=f'#{sample_count} gradcam', save_dir=roll_image_folder)
         plot_subimage_rolls(gradcams_subimages, subimages, subimage_positions, image_stats['subimage_std'],

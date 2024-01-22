@@ -142,7 +142,7 @@ def preprocess_subimages(cropped_image_data, patch_size=(32, 32), white_patch_ma
             # plt.imsave(f'C:/Users/apoca/Downloads/temp/{counter}_{s_image_name}_Dpatch_mask.png', cropped_image_data[image_name]['sub_images'][s_image_name]['patch_mask'])
 
             counter += 1
-    return cropped_image_data
+    return cropped_image_data, patch_size
 
 
 def patchify(image, patch_size):
@@ -251,33 +251,44 @@ def remap_subimage_aoi(subimage_patch_aoi, subimage_masks, subimages, subimage_p
     subimage_patch_counter = 0
     for s_image, s_mask, s_pos in zip(subimages, subimage_masks, subimage_positions):  # s refers to a single subimage
         s_patch_size = np.prod(s_mask.shape)
-        s_aoi = subimage_patch_aoi[subimage_patch_counter:(subimage_patch_counter + s_patch_size)].reshape(s_mask.shape)
+        s_aoi = np.copy(subimage_patch_aoi[subimage_patch_counter:(subimage_patch_counter + s_patch_size)].reshape(s_mask.shape))
 
         s_image_size_cropped_or_padded = s_aoi.shape[0] * patch_size[0], s_aoi.shape[1] * patch_size[1]  # the aoi is padded
         s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]
 
         # s_aoi = cv2.resize(s_aoi, dsize=reverse_tuple(s_image_size), interpolation=cv2.INTER_LINEAR)
         s_aoi = cv2.resize(s_aoi, dsize=reverse_tuple(s_image_size_cropped_or_padded), interpolation=cv2.INTER_LINEAR)
-
-        s_aoi = np.copy(s_aoi[:s_image_size[0], :s_image_size[1]])  # if the image is padded, this also remove the attention from the padded area
-        sub_image_aois.append(s_aoi)
+        s_aoi = s_aoi[:s_image_size[0], :s_image_size[1]]  # if the image is padded, this also remove the attention from the padded area
 
         if normalize_by_subimage:
             if np.max(s_aoi) > 0:
                 s_aoi = s_aoi / np.max(s_aoi)
             else:
                 warnings.warn(f"subimage {s_image} has no attention: zero division encounter when normalizing the attention. Nothing will be done to the attention. Consider using a lower discard ratio.")
+        else:
+            s_aoi = s_aoi
+
+       # zero out the masks, first recover the image size from the patch mask
+        s_original_mask = np.kron(s_mask, np.ones(patch_size, dtype=bool))
+        s_aoi = np.where(s_original_mask, s_aoi, 0)
+
         aoi_recovered[s_pos[0][1]:min(s_pos[2][1], s_pos[0][1] + s_image_size_cropped_or_padded[0]),  # the min is dealing with the cropped case
                       s_pos[0][0]:min(s_pos[2][0], s_pos[0][0] + s_image_size_cropped_or_padded[1])] += s_aoi
         subimage_patch_counter += s_patch_size
+        sub_image_aois.append(s_aoi)
     return aoi_recovered, sub_image_aois
 
 def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions, original_image_size):
     print("remapping subimage attention rolls")
 
+def apply_patch_mask(image, patch_mask, patch_size):
+    original_mask = np.kron(patch_mask, np.ones(patch_size, dtype=bool))[:image.shape[0], :image.shape[1]]
+    return np.where(original_mask, image, 0)
 
-def process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_size, normalize_by_subimage=False, *args, **kwargs):
+
+def process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_subimages, image_size, patch_size, normalize_by_subimage=False, *args, **kwargs):
     aoi_recovered = np.zeros(image_size)
+    subimage_aois = []
     for s_image, s_mask, s_pos, s_grad_cam in zip(subimages, subimage_masks, subimage_positions, gradcams_subimages):  # s refers to a single subimage
         s_image_size = s_pos[2][1] - s_pos[0][1], s_pos[2][0] - s_pos[0][0]
         s_grad_cam = np.copy(s_grad_cam[:s_image_size[0], :s_image_size[1]])
@@ -289,8 +300,11 @@ def process_grad_cam(subimages,  subimage_masks, subimage_positions, gradcams_su
                 warnings.warn(
                     f"subimage {s_image} has no attention: zero division encounter when normalizing the attention. Nothing will be done to the attention. Consider using a lower discard ratio.")
 
+        # zero out the masks
+        s_grad_cam = apply_patch_mask(s_grad_cam, s_mask, patch_size=(32, 32))
+        subimage_aois.append(s_grad_cam)
         aoi_recovered[s_pos[0][1]:min(s_pos[2][1], s_pos[0][1] + s_grad_cam.shape[0]),
                       s_pos[0][0]:min(s_pos[2][0], s_pos[0][0] + s_grad_cam.shape[1])] += s_grad_cam
-    return aoi_recovered
+    return aoi_recovered, subimage_aois
 
 

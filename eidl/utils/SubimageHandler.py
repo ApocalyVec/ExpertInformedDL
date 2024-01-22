@@ -64,7 +64,7 @@ class SubimageHandler:
         #     image_data_dict[k]['original_image'] = image_data_dict[k].pop('image')
 
         # preprocess the subimages
-        image_data_dict = preprocess_subimages(image_data_dict, *args, **kwargs)
+        image_data_dict, self.patch_size = preprocess_subimages(image_data_dict, *args, **kwargs)
 
         # process the subimages if there are any
         print("z norming subimages")
@@ -137,10 +137,11 @@ class SubimageHandler:
                 label = self.compound_label_encoder.encode([sample['label']])[1]
                 subimage_model_attn = get_gradcam(model, image, target=torch.FloatTensor(label).to(device))
                 subimage_model_attn = [x[0] for x in subimage_model_attn]  # get rid of the batch dimension
-                original_image_attn = process_grad_cam(subimages, subimage_masks, subimage_positions, subimage_model_attn, image_original_size, **kwargs)
+                original_image_attn, subimage_model_attn = process_grad_cam(subimages, subimage_masks, subimage_positions, subimage_model_attn, image_original_size, patch_size=self.patch_size, **kwargs)
                 self.attention_cache[(model_name, image_name)] = (original_image_attn, subimage_model_attn)
         else:
             patch_size = model.patch_height, model.patch_width
+            assert self.patch_size == patch_size, f"model patch size {patch_size} does not match the patch size of the subimage handler {self.patch_size}"
             if (model_name, image_name, discard_ratio) in self.attention_cache.keys():
                 attention = self.attention_cache[(model_name, image_name, discard_ratio)]
             else:
