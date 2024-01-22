@@ -17,11 +17,11 @@ if __name__ == '__main__':
     # if not provided, the model attention will be returned otherwise the perceptual attention will be returned
 
     # compute the static attention for the given image
-    rtn1 = subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', is_plot_results=True, discard_ratio=0.1, model_name='vit')
+    rtn1 = subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', is_plot_results=True, discard_ratio=0.1, model_name='vit', normalize_by_subimage=False)
 
     # you can get the perceptual attenton if you provide the source attention
     human_attention = get_sim_source_attention(subimage_handler.image_data_dict['RLS_036_OS_TC']['original_image'])  # create a dummy source attention, it must be of the same size as the original image
-    rtn2 = subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, discard_ratio=0.1, normalize_by_subimage=True, model_name='vit')
+    rtn2 = subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', source_attention=human_attention, discard_ratio=0.1, normalize_by_subimage=False, model_name='vit')
 
     # you can also get gradcam from one of the three cnn models (inception, vgg, resnet)
     rtn3 = subimage_handler.compute_perceptual_attention('RLS_036_OS_TC', is_plot_results=True, discard_ratio=0.1, model_name='resnet')

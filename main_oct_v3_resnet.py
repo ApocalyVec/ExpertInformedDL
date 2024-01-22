@@ -36,7 +36,7 @@ cropped_image_data_path = '/home/leo/Data/oct_v2/oct_reports_info_repaired.p'
 results_dir = '../temp/results'
 # use_saved_folds = None
 # use_saved_folds = '../temp/results-repaired-base-vit'
-# use_saved_folds = '../temp/results-repaired-pretrained-vit'
+# use_saved_folds = '../temp/results-repaired-pretrained-vit-10folds'
 use_saved_folds = '../temp/results-repaired-resnet'
 # use_saved_folds = '../temp/results-repaired-vgg'
 # use_saved_folds = '../temp/results-repaired-inception'
@@ -45,10 +45,10 @@ use_saved_folds = '../temp/results-repaired-resnet'
 n_jobs = 20  # n jobs for loading data from hard drive and z-norming the subimages
 
 # generic training parameters ##################################
-epochs = 50
+epochs = 100
 random_seed = 42
 batch_size = 2
-folds = 3
+folds = 10
 
 test_size = 0.1
 val_size = 0.14
@@ -150,7 +150,15 @@ if __name__ == '__main__':
         pickle.dump(image_stats, open(os.path.join(results_dir, 'image_stats.p'), 'wb'))
         pickle.dump(test_dataset.compound_label_encoder, open(os.path.join(results_dir, 'compound_label_encoder.p'), 'wb'))
 
-    # iterate through the folds
+    # check there's no data leak between the train and valid in the folds
+    for fold_i, (train_trial_dataset, valid_dataset, train_unique_img_dataset) in enumerate(folds):
+        train_names = {x['name'] for x in train_trial_dataset.trial_samples}
+        valid_names = {x['name'] for x in valid_dataset.trial_samples}
+
+        train_unique_names = {x['name'] for x in train_unique_img_dataset.trial_samples}
+
+        assert len(valid_names.intersection(train_names)) == 0
+        assert len(valid_names.intersection(train_unique_names)) == 0
 
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)  # TODO use the test loader in the future
 
