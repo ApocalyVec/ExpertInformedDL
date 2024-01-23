@@ -23,6 +23,7 @@ class SubimageHandler:
         self.models = {}
         self.compound_label_encoder = None
         self.attention_cache = {}  # holds the attention for each image, so that it does not have to be recomputed
+        self.vit_rollout = None
 
 
     def load_image_data(self, image_data_dict, *args, **kwargs):
@@ -145,9 +146,10 @@ class SubimageHandler:
             if (model_name, image_name, discard_ratio) in self.attention_cache.keys():
                 attention = self.attention_cache[(model_name, image_name, discard_ratio)]
             else:
-                vit_rollout = VITAttentionRollout(model, device=device, attention_layer_name='attn_drop', discard_ratio=discard_ratio, *args, **kwargs)
-                attention = vit_rollout(depth=model.depth-1, in_data=image, fixation_sequence=None, return_raw_attention=True)
-                del vit_rollout
+                if self.vit_rollout is None or self.vit_rollout.model != model:
+                    self.vit_rollout = VITAttentionRollout(model, device=device, attention_layer_name='attn_drop', discard_ratio=discard_ratio, *args, **kwargs)
+                self.vit_rollout.discard_ratio = discard_ratio
+                attention = self.vit_rollout(depth=model.depth-1, in_data=image, fixation_sequence=None, return_raw_attention=True)
                 self.attention_cache[(model_name, image_name, discard_ratio)] = attention
             if source_attention is not None:
                 source_attention_patchified = []

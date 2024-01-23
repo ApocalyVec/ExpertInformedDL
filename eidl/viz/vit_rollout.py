@@ -69,9 +69,9 @@ def rollout(depth, attentions, discard_ratio, head_fusion, normalize=True, retur
 
             if i in depth:
                 if not return_raw_attention:
-                    rtn = result[0, 0, 1:].numpy()  # Look at the total attention between the class token, # and the image patches
+                    rtn = result[0, 0, 1:].detach().cpu().numpy()  # Look at the total attention between the class token, # and the image patches
                 else:
-                    rtn = result[0].numpy()
+                    rtn = result[0].detach().cpu().numpy()
                 if normalize and rtn.max() > 0:
                     rtn = rtn / np.max(rtn)
 
@@ -134,7 +134,7 @@ class VITAttentionRollout:
             attention_output = output[1]
         else:
             attention_output = output
-        self.attentions.append(attention_output.detach().cpu())
+        self.attentions.append(attention_output.detach())
 
     def __call__(self, depth, in_data, *args, **kwargs):
         if np.max(depth) > self.attention_layer_count:
