@@ -1,5 +1,6 @@
 import itertools
 import warnings
+from collections import defaultdict
 from multiprocessing import Pool
 
 import PIL
@@ -173,16 +174,48 @@ def patchify(image, patch_size):
     return patches
 
 
+def get_mean_std_subimages(image, axis=(1, 2)):
+    return np.mean(image, axis=axis), np.std(image, axis=axis)
+
+def get_image_mean(image, axis=(0, 1)):
+    return np.mean(image, axis=axis)
+
+def get_image_std(image, axis=(0, 1)):
+    return np.std(image, axis=axis)
+
 def z_norm_subimages(name_label_images_dict, n_jobs=1, *args, **kwargs):
     image_names = list(name_label_images_dict.keys())
     sub_image_names = list(name_label_images_dict[image_names[0]]['sub_images'].keys())
 
+    # subimage_info = defaultdict(list)  # subimage name -> list of this type of subimages in all images
+    # for image_name, image_data in name_label_images_dict.items():
+    #     for s_image_name, s_image_data in image_data['sub_images'].items():
+    #         subimage_info[s_image_name].append(s_image_data['sub_image_cropped_padded'])
+    # # concate the list in the subimage dics
+    # subimage_info = [np.stack(subimages, axis=0) for subimages in subimage_info.values()]
+    # # compute mean and stds for each subimage type
+    # if n_jobs > 1:
+    #     with Pool(n_jobs) as p:
+    #         subimage_info = p.map(get_mean_std_subimages, subimage_info)
+    # else:
+    #     subimage_info = [get_mean_std_subimages(subimages) for subimages in subimage_info]
+    # all_mean = np.mean(np.concatenate([x[0] for x in subimage_info]), axis=(0))
+
+
     all_sub_images = [image_data['sub_images'][s_image_name]['sub_image'] for image_name, image_data in name_label_images_dict.items() for i, s_image_name in enumerate(sub_image_names)]
 
-    mean_values = np.stack([np.mean(image, axis=(0, 1)) for image in all_sub_images])
+    if n_jobs > 1:
+        with Pool(n_jobs) as p:
+            all_sub_image_means = p.map(get_image_mean, all_sub_images)
+            all_sub_image_stds = p.map(get_image_std, all_sub_images)
+    else:
+        all_sub_image_means = [np.mean(image, axis=(0, 1)) for image in all_sub_images]
+        all_sub_image_stds = [np.std(image, axis=(0, 1)) for image in all_sub_images]
+
+    mean_values = np.stack(all_sub_image_means)
     all_mean = np.mean(mean_values, axis=0)
 
-    std_values = np.stack([np.std(image, axis=(0, 1)) for image in all_sub_images])
+    std_values = np.stack(all_sub_image_stds)
     all_std = np.sqrt(np.mean(np.square(std_values), axis=0))
 
     # now normalize the sub images
@@ -191,10 +224,22 @@ def z_norm_subimages(name_label_images_dict, n_jobs=1, *args, **kwargs):
     # with Pool(n_jobs) as p:
     #     images = p.starmap(z_normalize_image, znorm_image_args)
 
-    for image_name, image_data in name_label_images_dict.items():
-        for s_image_name, s_image_data in image_data['sub_images'].items():
-            s_image_data['sub_image_cropped_padded_z_normed'] = z_normalize_image(s_image_data['sub_image_cropped_padded'], all_mean, all_std)
-            # s_image_data['sub_image_cropped_padded_z_normed'] = (s_image_data['sub_image_cropped_padded'] - all_mean) / all_std
+    if n_jobs > 1:
+        znorm_args = [(image_data['sub_images'][s_image_name]['sub_image_cropped_padded'], all_mean, all_std)
+                      for image_name, image_data in name_label_images_dict.items()
+                      for s_image_name in sub_image_names]
+        with Pool(n_jobs) as p:
+            normalized_images = p.starmap(z_normalize_image, znorm_args)
+        idx = 0
+        for image_name, image_data in name_label_images_dict.items():
+            for s_image_name in sub_image_names:
+                image_data['sub_images'][s_image_name]['sub_image_cropped_padded_z_normed'] = normalized_images[idx]
+                idx += 1
+    else:
+        for image_name, image_data in name_label_images_dict.items():
+            for s_image_name, s_image_data in image_data['sub_images'].items():
+                s_image_data['sub_image_cropped_padded_z_normed'] = z_normalize_image(s_image_data['sub_image_cropped_padded'], all_mean, all_std)
+                # s_image_data['sub_image_cropped_padded_z_normed'] = (s_image_data['sub_image_cropped_padded'] - all_mean) / all_std
 
     return name_label_images_dict, all_mean, all_std
 
@@ -283,6 +328,8 @@ def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions,
 
 def apply_patch_mask(image, patch_mask, patch_size):
     original_mask = np.kron(patch_mask, np.ones(patch_size, dtype=bool))[:image.shape[0], :image.shape[1]]
+    # in case image is bigger than the mask, pad the mask
+
     return np.where(original_mask, image, 0)
 
 
