@@ -43,7 +43,8 @@ def rollout(depth, attentions, discard_ratio, head_fusion, normalize=True, retur
 
     result = torch.eye(attentions[0].size(-1)).to(attentions[0].device)
     with torch.no_grad():
-        for i, attention in enumerate(attentions):
+        for i in range(max(depth) + 1):
+            attention = attentions[i]
             if head_fusion == "mean":
                 attention_heads_fused = attention.mean(axis=1)
             elif head_fusion == "max":
@@ -65,18 +66,16 @@ def rollout(depth, attentions, discard_ratio, head_fusion, normalize=True, retur
             a = a / a.sum(dim=-1)
 
             result = torch.matmul(a, result)
+
             if i in depth:
                 if not return_raw_attention:
-                    rtn = result[0, 0, 1:]  # Look at the total attention between the class token, # and the image patches
+                    rtn = result[0, 0, 1:].numpy()  # Look at the total attention between the class token, # and the image patches
                 else:
-                    rtn = result[0]
+                    rtn = result[0].numpy()
                 if normalize and rtn.max() > 0:
-                    rtn = rtn / torch.max(rtn)
+                    rtn = rtn / np.max(rtn)
 
-                rolls.append(rtn.detach().cpu().numpy())
-                depth = [x for x in depth if x != i]
-                if len(depth) == 0:
-                    break
+                rolls.append(rtn)
 
     if len(rolls) == 1:
         return rolls[0]
@@ -104,11 +103,13 @@ class VITAttentionRollout:
         self.device = device
         self.head_fusion = head_fusion
         self.discard_ratio = discard_ratio
+        self.attention_layer_name = attention_layer_name
 
         self.attention_layer_count = 0
+        self.forward_hook_handles = []
         for name, module in self.model.named_modules():
             if attention_layer_name in name or isinstance(module, ExpertAttentionViTAttention):
-                module.register_forward_hook(self.get_attention)
+                self.forward_hook_handles.append(module.register_forward_hook(self.get_attention))
                 self.attention_layer_count += 1
         if self.attention_layer_count == 0:
             raise ValueError("No attention layer in the given model")
@@ -123,12 +124,17 @@ class VITAttentionRollout:
         elif self.is_reset_fuse_attn and isinstance(self.vit_model, VisionTransformer):
             self.block_count = len(self.vit_model.blocks)
 
+    def __del__(self):
+        # remove the hooks
+        for handle in self.forward_hook_handles:
+            handle.remove()
+
     def get_attention(self, module, input, output):
         if isinstance(module, ExpertAttentionViTAttention):
             attention_output = output[1]
         else:
             attention_output = output
-        self.attentions.append(attention_output)
+        self.attentions.append(attention_output.detach().cpu())
 
     def __call__(self, depth, in_data, *args, **kwargs):
         if np.max(depth) > self.attention_layer_count:
@@ -147,4 +153,9 @@ class VITAttentionRollout:
             for i in range(self.block_count-1):
                 self.vit_model.blocks[i].attn.fused_attn = True
 
-        return rollout(depth, self.attentions, self.discard_ratio, self.head_fusion, *args, **kwargs)
+
+        rtn = rollout(depth, self.attentions, self.discard_ratio, self.head_fusion, *args, **kwargs)
+
+        # free the attentions
+        self.attentions = []
+        return rtn

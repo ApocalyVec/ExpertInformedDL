@@ -17,7 +17,7 @@ results_dir = '../temp/results-repaired-base-vit'
 
 source_attention_path = r"../temp/perceptual_roi\samples"
 
-figure_output = '../temp/perceptual_roi/norm CLS'
+figure_output = '../temp/perceptual_roi/norm CLS numpy rollout'
 model_type = 'vit'
 
 image_name = 'RLS_036_OS_TC'

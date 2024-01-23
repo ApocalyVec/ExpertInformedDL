@@ -1,4 +1,5 @@
 import os
+import pickle
 import shutil
 import tempfile
 import time
@@ -101,6 +102,9 @@ def test_precompute_resnet():
 def test_precompute_vit():
     model_name = 'vit'
     discard_ratio = 0.1
+
+    subimage_handler = get_subimage_model(precompute=model_name, n_jobs=24, discard_ratio=discard_ratio)
+
     subimage_handler = get_subimage_model(precompute=model_name, n_jobs=24, discard_ratio=discard_ratio)
     for image_name in subimage_handler.image_data_dict.keys():
         assert (model_name, image_name, discard_ratio) in subimage_handler.attention_cache

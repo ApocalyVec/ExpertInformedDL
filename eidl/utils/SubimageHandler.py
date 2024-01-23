@@ -147,6 +147,7 @@ class SubimageHandler:
             else:
                 vit_rollout = VITAttentionRollout(model, device=device, attention_layer_name='attn_drop', discard_ratio=discard_ratio, *args, **kwargs)
                 attention = vit_rollout(depth=model.depth-1, in_data=image, fixation_sequence=None, return_raw_attention=True)
+                del vit_rollout
                 self.attention_cache[(model_name, image_name, discard_ratio)] = attention
             if source_attention is not None:
                 source_attention_patchified = []
@@ -155,6 +156,7 @@ class SubimageHandler:
                                          s_image['position'][0][1]:(s_image['position'][0][1] + s_image['image'].shape[1]),
                                          s_image['position'][0][0]:(s_image['position'][0][0] + s_image['image'].shape[2])]
                     # pad the source attention to the size of the subimage
+                    # noinspection PyTypeChecker
                     s_source_attention = np.pad(s_source_attention, ((0, s_image['image'].shape[1] - s_source_attention.shape[0]),
                                                                      (0, s_image['image'].shape[2] - s_source_attention.shape[1])),
                                                 mode='constant', constant_values=0)
