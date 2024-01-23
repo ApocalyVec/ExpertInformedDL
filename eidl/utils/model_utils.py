@@ -307,7 +307,7 @@ def get_subimage_model(precompute: Union[List[str], str]=None, *args, **kwargs):
     for i, model_name in enumerate(precompute):
         for j, image_name in enumerate(subimage_handler.image_data_dict.keys()):
             print(f"Precomputing {model_name} ({i}/{len(precompute)}) for {image_name}, {j}/{len(subimage_handler.image_data_dict.keys())}", end='\r', flush=True)
-            subimage_handler.compute_perceptual_attention(image_name, model_name=model_name, is_plot_results=True, *args, **kwargs)
+            subimage_handler.compute_perceptual_attention(image_name, model_name=model_name, is_plot_results=False, *args, **kwargs)
     return subimage_handler
 
 
