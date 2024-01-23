@@ -92,7 +92,7 @@ class SubimageHandler:
         return image_data_dict
 
     def compute_perceptual_attention(self, image_name, source_attention=None, overlay_alpha=0.75, is_plot_results=True,
-                                     notes='', discard_ratio=0.9, model_name='vit', *args, **kwargs):
+                                     notes='', discard_ratio=0.1, model_name='vit', *args, **kwargs):
         """
 
         Parameters

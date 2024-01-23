@@ -314,8 +314,7 @@ def remap_subimage_aoi(subimage_patch_aoi, subimage_masks, subimages, subimage_p
             s_aoi = s_aoi
 
        # zero out the masks, first recover the image size from the patch mask
-        s_original_mask = np.kron(s_mask, np.ones(patch_size, dtype=bool))
-        s_aoi = np.where(s_original_mask, s_aoi, 0)
+        s_grad_cam = apply_patch_mask(s_aoi, s_mask, patch_size=(32, 32))
 
         aoi_recovered[s_pos[0][1]:min(s_pos[2][1], s_pos[0][1] + s_image_size_cropped_or_padded[0]),  # the min is dealing with the cropped case
                       s_pos[0][0]:min(s_pos[2][0], s_pos[0][0] + s_image_size_cropped_or_padded[1])] += s_aoi
@@ -327,8 +326,12 @@ def remap_subimage_attention_rolls(rolls, subimage_masks, subsubimage_positions,
     print("remapping subimage attention rolls")
 
 def apply_patch_mask(image, patch_mask, patch_size):
-    original_mask = np.kron(patch_mask, np.ones(patch_size, dtype=bool))[:image.shape[0], :image.shape[1]]
-    # in case image is bigger than the mask, pad the mask
+    original_mask = np.kron(patch_mask, np.ones(patch_size, dtype=bool))[:image.shape[0], :image.shape[1]]  # cut in case image is bigger than the mask
+    # in case mask is bigger than the image, pad the mask
+    if original_mask.shape[0] < image.shape[0]:
+        original_mask = np.pad(original_mask, ((0, image.shape[0] - original_mask.shape[0]), (0, 0)), mode='constant', constant_values=0)
+    if original_mask.shape[1] < image.shape[1]:
+        original_mask = np.pad(original_mask, ((0, 0), (0, image.shape[1] - original_mask.shape[1])), mode='constant', constant_values=0)
 
     return np.where(original_mask, image, 0)
 

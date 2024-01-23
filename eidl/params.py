@@ -1,5 +1,3 @@
-project_version = '0.0.19'
-
 # train parameters for train.py ########################################
 # train parameters
 # data_root = "/media/rena-researcher/Elements/ExpertViT/Datasets/ODIR"

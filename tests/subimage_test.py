@@ -6,7 +6,6 @@ import time
 import numpy as np
 
 from eidl.utils.model_utils import get_subimage_model, count_parameters
-from eidl.params import project_version
 
 
 def test_get_subimage_model_download():
@@ -29,7 +28,7 @@ def test_get_subimage_model_download():
         os.remove(dataset_path)
 
     #####
-    temp_dir = os.path.join(temp_dir, f"eidl_{project_version}")
+    temp_dir = os.path.join(temp_dir, f"eidl")
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
 
@@ -92,9 +91,24 @@ def test_gradcam():
     subimage_handler.compute_perceptual_attention(image_name, discard_ratio=0.1, normalize_by_subimage=True, model_name=model_name)
 
 
-def test_precompute_gradcam():
-    subimage_handler = get_subimage_model(precompute_gradcams=True, n_jobs=24)
+def test_precompute_resnet():
+    model_name = 'resnet'
+    subimage_handler = get_subimage_model(precompute=model_name, n_jobs=24)
+    for image_name in subimage_handler.image_data_dict.keys():
+        assert (model_name, image_name) in subimage_handler.attention_cache
 
 
+def test_precompute_vit():
+    model_name = 'vit'
+    discard_ratio = 0.1
+    subimage_handler = get_subimage_model(precompute=model_name, n_jobs=24, discard_ratio=discard_ratio)
+    for image_name in subimage_handler.image_data_dict.keys():
+        assert (model_name, image_name, discard_ratio) in subimage_handler.attention_cache
 
-# def test_precompute_rollout():
+def test_precompute_multiple_model():
+    model_names = ['vit', 'resnet']
+    discard_ratio = 0.1
+    subimage_handler = get_subimage_model(precompute=model_names, n_jobs=24)
+    for image_name in subimage_handler.image_data_dict.keys():
+        assert ('resnet', image_name) in subimage_handler.attention_cache
+        assert ('vit', image_name, discard_ratio) in subimage_handler.attention_cache

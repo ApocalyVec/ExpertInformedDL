@@ -2,7 +2,7 @@ import os
 import pickle
 import tempfile
 import urllib
-from typing import Callable
+from typing import Callable, Union, List
 
 import numpy as np
 import timm
@@ -16,7 +16,6 @@ from eidl.Models.ExtensionTimmViTSubimage import ExtensionTimmViTSubimage
 from eidl.Models.ExtensionModel import ExtensionModelSubimage
 from eidl.utils.image_utils import load_oct_image
 from eidl.utils.iter_utils import reverse_tuple, chunker
-from eidl.params import project_version
 
 
 def get_model(model_name, image_size, depth, device, *args, **kwargs):
@@ -231,9 +230,29 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
-def get_subimage_model(*args, **kwargs):
+def get_subimage_model(precompute: Union[List[str], str]=None, *args, **kwargs):
+    """
+    Get the subimage handler with the precomputed results
+
+    Parameters
+    ----------
+    precompute: list of str, or str, or None
+        if list of str, list of models to precompute
+        if str, model to precompute
+        if None, no precomputation
+
+        Example:
+            precompute = 'vit' will precompute the rollout based on vit
+            precompute = ['vit', 'resnet'] will precompute the gradcam based on resnet, and rollout for vit
+            precompute = None will not precompute anything
+
+    Returns
+    -------
+    subimage_handler: SubimageHandler
+
+    """
     # make a temp dir with version number
-    temp_dir = os.path.join(tempfile.gettempdir(), f"eidl_{project_version}")
+    temp_dir = os.path.join(tempfile.gettempdir(), f"eidl")
     if not os.path.exists(temp_dir):
         os.mkdir(temp_dir)
 
@@ -262,7 +281,6 @@ def get_subimage_model(*args, **kwargs):
     inception_model = download_and_load('1miWqj_UyS8QQYyRQqGBMzMiB02fRnhm0', temp_dir, torch.load)
     print("inception model downloaded and loaded.")
 
-
     # download the compound label encoder
     print("Downloading the compound label encoder...")
     compound_label_encoder = download_and_load('1K5xFlovm8hVX6EQLNZGw6Gn8CuLVnEwT', temp_dir, _p_load)
@@ -278,6 +296,18 @@ def get_subimage_model(*args, **kwargs):
     subimage_handler.models['vgg'] = vgg_model
     subimage_handler.compound_label_encoder = compound_label_encoder
 
+    if precompute is None:
+        return subimage_handler
+
+    if type(precompute) == str:
+        precompute = [precompute]
+    for model_name in precompute:
+        assert model_name in subimage_handler.models.keys(), f"model name {model_name} is not supported, cannot precompute."
+
+    for i, model_name in enumerate(precompute):
+        for j, image_name in enumerate(subimage_handler.image_data_dict.keys()):
+            print(f"Precomputing {model_name} ({i}/{len(precompute)}) for {image_name}, {j}/{len(subimage_handler.image_data_dict.keys())}", end='\r', flush=True)
+            subimage_handler.compute_perceptual_attention(image_name, model_name=model_name, is_plot_results=True, *args, **kwargs)
     return subimage_handler
 
 
@@ -291,7 +321,7 @@ def download_and_load(file_id: str, temp_dir: str, load_func: Callable):
     except FileNotFoundError:
         print("Downloading the dataset failed because google drive has limited the download quota. \n"
               "Please download from this link https://drive.google.com/uc?id=1ZvBpMvq92DxSGIzn-Cs0Vq37cYj77lWZ,  \n"
-              "Run this command to move the downloaded file to the temp directory:  \n"
+              "Then this command to move the downloaded file to the temp directory:  \n"
               f"mv <path>/<to>/oct_reports_info_repaired.p {save_path}\n"
               "Then run your code again.")
         raise FileNotFoundError
