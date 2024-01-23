@@ -170,8 +170,8 @@ class SubimageHandler:
                     source_attention_patchified.append(s_source_attention_patches)
                 source_attention_patchified = np.concatenate(source_attention_patchified)
                 # compute the perceptual attention
-                attn_tensor = torch.tensor(attention).to(device)
-                attention = compute_percep_attn(attn_tensor, torch.tensor(source_attention_patchified).to(dtype=attn_tensor.dtype, device=device))
+                source_tensor = torch.tensor(source_attention_patchified).to(device=device)
+                attention = compute_percep_attn(torch.tensor(attention).to(dtype=source_tensor.dtype, device=device), source_tensor)
             else:  # if the source attention is not provided, use the model attention
                 attention = attention[0, 1:]  # get the attention from the class token to the subimages
             original_image_attn, subimage_model_attn = process_aoi(attention, image_original_size, True,
@@ -193,45 +193,53 @@ class SubimageHandler:
 def compute_percep_attn(attention, source_attention_patchified):
     device = attention.device
     start = time.time()
-    # attn_cls = attention[0, 1:] / np.sum(attention[0, 1:])  # normalize as they are treated as probabilities
-    attn_cls = attention[0, 1:]
-    attn_cls = (attn_cls - attn_cls.min()) / (attn_cls.max() - attn_cls.min())
-    attn_cls = torch.ones_like(attn_cls) + attn_cls
-    attn_cls = attn_cls / attn_cls.max()
 
-    attn_self = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
-    # apply softmax to the attention
+    attn_cls_tensor = attention[0, 1:]
+    attn_cls_tensor = (attn_cls_tensor - attn_cls_tensor.min()) / (attn_cls_tensor.max() - attn_cls_tensor.min())
+    attn_cls_tensor = torch.ones_like(attn_cls_tensor) + attn_cls_tensor
+    attn_cls_tensor = attn_cls_tensor / attn_cls_tensor.max()
 
-    attn_self = attn_self * (1 - torch.eye(len(attn_self)).to(device))  # zero out the diagonal of the attention
-    attn_self = torch.exp(attn_self) / torch.sum(torch.exp(attn_self), dim=1)[:, None]
+    attn_self_tensor = attention[1:, 1:]  # remove the first row and column of the attention, which is the class token
+    attn_self_tensor.fill_diagonal_(0)
+    # attn_self_tensor = torch.exp(attn_self_tensor) / torch.sum(torch.exp(attn_self_tensor), dim=1)[:, None]  # apply softmax to the attention
+    attn_self_tensor = torch.nn.Softmax(dim=1)(attn_self_tensor)
 
-    # attn_temp = np.einsum('i,ij->j', 1 / (source_attention_patchified + 1e-6), attn_self)
-    attn_source = (source_attention_patchified - source_attention_patchified.min()) / (source_attention_patchified.max() - source_attention_patchified.min())
-    attn_source = torch.ones_like(attn_source) + attn_source
-    attn_source = attn_source / attn_source.max()
+    attn_source_tensor = (source_attention_patchified - source_attention_patchified.min()) / (source_attention_patchified.max() - source_attention_patchified.min())
+    attn_source_tensor = torch.ones_like(attn_source_tensor) + attn_source_tensor
+    attn_source_tensor = attn_source_tensor / attn_source_tensor.max()
 
-    # attn_temp = np.zeros(len(attn_source))
-    # for i in range(len(attn_source)):
-    #     if attn_source[i] == 0:
-    #         attn_temp += attn_self[:, i]
-    #     else:
-    #         attn_temp += attn_self[:, i] * attn_source[i]
-    #
-    # attn_temp = np.zeros(len(attn_source))
-    # for j in range(attn_self.shape[0]):
-    #     attn_temp[j] = np.sum(attn_source * attn_self[j, :])
+    attn_temp_tensor = torch.einsum('i,ij->j', 1 / attn_source_tensor, attn_self_tensor.T)
+    attn_temp_tensor = (attn_temp_tensor - attn_temp_tensor.min()) / (attn_temp_tensor.max() - attn_temp_tensor.min())
 
-    attn_temp = torch.einsum('i,ij->j', 1 / attn_source, attn_self.T)
-    attn_temp = (attn_temp - attn_temp.min()) / (attn_temp.max() - attn_temp.min())
+    rtn_torch = (attn_temp_tensor * attn_cls_tensor).detach().cpu().numpy()
+
     print(f"computing percep attention using torch took {time.time() - start} seconds")
 
-    return (attn_temp * attn_cls).detach().cpu().numpy()
 
-    # bayesian inverse relation ##########################################
-    # attention = vit_rollout(depth=self.model.depth, in_data=image, fixation_sequence=None)
-    # attention = attention / (source_attention_patchified + 1e-6)
-    # attention = attention / np.max(attention)
 
-    # sum across the columns ##########################################
-    # attention = np.sum(attention, axis=0)
-    # get the subimage attention from the source
+    # attention_np = attention.detach().cpu().numpy()
+    # source_attention_patchified = source_attention_patchified.detach().cpu().numpy()
+    # start = time.time()
+    # attn_cls = attention_np[0, 1:]
+    # attn_cls = (attn_cls - attn_cls.min()) / (attn_cls.max() - attn_cls.min())
+    # attn_cls = np.ones_like(attn_cls) + attn_cls
+    # attn_cls = attn_cls / attn_cls.max()
+    #
+    # attn_self = attention_np[1:, 1:]  # remove the first row and column of the attention, which is the class token
+    # attn_self = attn_self * (1 - np.eye(len(attn_self)))  # zero out the diagonal of the attention
+    # attn_self = np.exp(attn_self) / np.sum(np.exp(attn_self), axis=1)[:, None]  # apply softmax to the attention
+    #
+    # attn_source = (source_attention_patchified - source_attention_patchified.min()) / (
+    #         source_attention_patchified.max() - source_attention_patchified.min())
+    # attn_source = np.ones_like(attn_source) + attn_source
+    # attn_source = attn_source / attn_source.max()
+    #
+    # attn_temp = np.einsum('i,ij->j', 1 / attn_source, attn_self.T)
+    # attn_temp = (attn_temp - attn_temp.min()) / (attn_temp.max() - attn_temp.min())
+    # rtn_np = attn_temp * attn_cls
+
+    # print(f"computing percep attention using numpy took {time.time() - start} seconds")
+
+
+    # return (attn_temp * attn_cls).detach().cpu().numpy()
+    return rtn_torch
