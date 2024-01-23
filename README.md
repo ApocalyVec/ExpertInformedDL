@@ -20,6 +20,23 @@ subimage_handler.compute_perceptual_attention('9025_OD_2021_widefield_report', i
 
 ```
 
+### If you want to use the rollouts/gradcams in a user interface, you may consider precomputing them, as it can be slow to compute them on the fly.
+
+```python
+from eidl.utils.model_utils import get_subimage_model
+
+subimage_handler = get_subimage_model(precompute='vit')
+
+# or
+
+subimage_handler = get_subimage_model(precompute='resnet')
+
+# or
+
+subimage_handler = get_subimage_model(precompute=['vit', 'resnet'])
+
+```
+
 
 ### If you don't want to use subimages:
 
