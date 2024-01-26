@@ -282,7 +282,7 @@ def get_subimage_model(precompute: Union[List[str], str]=None, *args, **kwargs):
 
     # get the inception model
     print("Downloading inception model...")
-    inception_model = download_and_load('1miWqj_UyS8QQYyRQqGBMzMiB02fRnhm0', temp_dir, torch.load)
+    inception_model = download_and_load('1miWqj_UyS8QQYyRQqGBMzMiB02fRnhm0', temp_dir, torch_load)
     print("inception model downloaded and loaded.")
 
     # download the compound label encoder
