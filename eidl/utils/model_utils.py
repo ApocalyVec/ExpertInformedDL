@@ -251,6 +251,10 @@ def get_subimage_model(precompute: Union[List[str], str]=None, *args, **kwargs):
     subimage_handler: SubimageHandler
 
     """
+    # find the device on this device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    torch_load = lambda x: torch.load(x, map_location=device)
+
     # make a temp dir with version number
     temp_dir = os.path.join(tempfile.gettempdir(), f"eidl")
     if not os.path.exists(temp_dir):
@@ -264,15 +268,15 @@ def get_subimage_model(precompute: Union[List[str], str]=None, *args, **kwargs):
 
     # get the resnet model
     print("Downloading resnet model...")
-    resnet_model = download_and_load('1oIvAaZM1SoKke4AUE_RBS7O85cIy_isP', temp_dir, torch.load)  # this is to load the model into the cache
+    resnet_model = download_and_load('1oIvAaZM1SoKke4AUE_RBS7O85cIy_isP', temp_dir, torch_load)  # this is to load the model into the cache
 
     # get the vgg model
     print("Downloading vgg model...")
-    vgg_model = download_and_load('1qWsKqfS_ym8HGioz4bMPvWfldGPxZHpI', temp_dir, torch.load)  # this is to load the model into the cache
+    vgg_model = download_and_load('1qWsKqfS_ym8HGioz4bMPvWfldGPxZHpI', temp_dir, torch_load)  # this is to load the model into the cache
 
     # get the vit model
     print("Downloading vit model...")
-    vit_model = download_and_load('1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', temp_dir, torch.load)  # this is to load the model into the cache
+    vit_model = download_and_load('1SSMi74PwnIbGmzSz8X53-N58fYxKB2hU', temp_dir, torch_load)  # this is to load the model into the cache
     print("vit model downloaded and loaded.")
     patch_size = vit_model.patch_height, vit_model.patch_width
 
